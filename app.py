@@ -6,7 +6,7 @@ from datetime import datetime
 import math
 from streamlit_js_eval import streamlit_js_eval
 
-# Coordenadas del punto central requerido (ejemplo centrado en tu enlace de referencia)
+# Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0639
 LON_OBJETIVO = -75.7292
 RADIO_MAX_KM = 2.0
@@ -31,7 +31,8 @@ MESES_ESPANOL = {
 }
 
 try:
-    gc = gspread.service_account(filename=".streamlit/secrets.json")
+    # Conexión utilizando los Secrets de Streamlit Cloud para producción
+    gc = gspread.service_account_from_dict(st.secrets["gspread"])
     
     # Conexión directa con tu ID de Google Sheets
     hoja_calculo = gc.open_by_key('1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU')
@@ -73,7 +74,7 @@ try:
         st.write("")
         st.write("")
         
-        # Columnas para encuadrar el login en un rectángulo vertical centrado
+        # Columnas para encuadrar el login en un rectángulo vertical centrado (Formato Tarjeta)
         col_izq, col_centro, col_der = st.columns([1, 1.6, 1])
         
         with col_centro:
@@ -102,6 +103,7 @@ try:
         
         es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
         
+        # Unificación de la estructura de pestañas para evitar errores de renderizado del Administrador
         if es_admin:
             st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
             tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
@@ -111,9 +113,13 @@ try:
 
         fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
         
+        # Lectura segura y limpia de los estados de las celdas
         marca_entrada = str(fila_usuario.iloc[0][col_entrada]).strip() if not pd.isna(fila_usuario.iloc[0][col_entrada]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
+        # =========================================================
+        # CÁLCULO DE HORA ACTUAL AUTOMÁTICA EN FORMATO 12 HORAS
+        # =========================================================
         ahora = datetime.now()
         hora_24 = ahora.hour
         minuto_actual = ahora.minute
@@ -125,11 +131,15 @@ try:
             
         idx_hora = hora_12 - 1
         idx_minuto = minuto_actual
+        # =========================================================
 
+        # =========================================================
+        # PESTAÑA 1: PANEL DE MARCADO DIARIO (ADMIN Y ASESORES)
+        # =========================================================
         with tab_marcado:
             st.write("")
             
-            # Solicitud interactiva de ubicación en tiempo real utilizando la API del navegador del dispositivo externo
+            # Verificación interactiva de ubicación por GPS usando el navegador
             st.markdown("##### Verificación de Ubicación Requerida")
             loc = streamlit_js_eval(data_of='geolocation', stop_after_pose=True, key='GPS_USER')
             
@@ -164,7 +174,7 @@ try:
                 
                 st.write("")
                 
-                # Deshabilitar botones si la geocerca no se ha validado de forma correcta
+                # Botón condicionado a la geocerca de 2 km
                 if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
                     hora_formateada = f"{h_ent}:{m_ent} {p_ent}"
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
@@ -202,7 +212,7 @@ try:
                     
                     st.write("")
                     
-                    # Deshabilitar botón si la geocerca no se ha validado de forma correcta
+                    # Botón condicionado a la geocerca de 2 km
                     if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
                         hora_formateada = f"{h_sal}:{m_sal} {p_sal}"
                         df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
@@ -215,6 +225,7 @@ try:
             else:
                 st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Salida: {marca_salida}")
 
+            # Historial propio estructurado en una tabla limpia
             st.write("")
             with st.expander("Consultar mi historial"):
                 fecha_busqueda = st.date_input("Selecciona fecha:", value=datetime.now().date(), key="cal_asesor")
@@ -236,6 +247,9 @@ try:
                     else:
                         st.caption("Sin registros para esta fecha.")
 
+        # =========================================================
+        # PESTAÑA 2: REPORTE GENERAL (SOLO VISIBLE PARA EL ADMIN)
+        # =========================================================
         if es_admin:
             with tab_reporte:
                 st.write("")
@@ -255,6 +269,7 @@ try:
                     else:
                         st.caption(f"No hay datos registrados para el {fecha_formateada_busqueda}.")
 
+        # Botón para salir de la app
         st.write("")
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state.autenticado = False

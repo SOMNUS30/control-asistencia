@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 from streamlit_geolocation import streamlit_geolocation
 
@@ -19,6 +19,10 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(lat1*rad) * math.cos(lat2*rad) * math.sin(dlon/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return 6371.0 * c  # Retorna la distancia en kilómetros
+
+# Función para obtener la hora exacta de Perú (UTC-5) sin importar el servidor
+def obtener_hora_peru():
+    return datetime.utcnow() - timedelta(hours=5)
 
 # Configuracion de pagina con diseno responsivo y centrado sin emoticonos
 st.set_page_config(page_title="Control de Asistencia", page_icon=None, layout="centered")
@@ -37,17 +41,18 @@ try:
     # Conexión directa con tu ID de Google Sheets
     hoja_calculo = gc.open_by_key('1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU')
     
-    # Detectar el mes actual automáticamente
-    mes_actual_num = datetime.now().month
+    # Detectar el mes actual automáticamente basándose en la hora de Perú
+    hora_peru_actual = obtener_hora_peru()
+    mes_actual_num = hora_peru_actual.month
     nombre_pestana = MESES_ESPANOL[mes_actual_num]
     
     wks = hoja_calculo.worksheet(nombre_pestana)
     df = get_as_dataframe(wks).dropna(how="all").dropna(axis=1, how="all")
     
     # =========================================================
-    # AUTOMATIZACIÓN DE FALTAS DIARIAS
+    # AUTOMATIZACIÓN DE FALTAS DIARIAS (Con hora de Perú)
     # =========================================================
-    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+    fecha_hoy = hora_peru_actual.strftime("%d/%m/%Y")
     col_entrada = f"{fecha_hoy} (Entrada)"
     col_salida = f"{fecha_hoy} (Salida)"
     
@@ -145,14 +150,20 @@ try:
             
             st.write("---")
             
+            # Cálculo exacto de la hora de visualización previa al envío
+            tiempo_peru_actual = obtener_hora_peru()
+            hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
+            
             if marca_entrada in ["Falta", "-", "", "nan", "None"]:
                 st.info("Estado: Sin registro de ingreso hoy.")
                 
-                # Se eliminaron los selectores manuales de hora. Ahora solo se muestra el botón seguro.
+                # Cuadro indicador estático que muestra la hora exacta que se grabará
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                st.write("")
+                
                 if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
-                    # Captura inalterable del tiempo exacto del sistema en el instante del clic
-                    ahora_click = datetime.now()
-                    hora_formateada = ahora_click.strftime("%I:%M %p") # Ejemplo: "08:30 AM" o "02:15 PM"
+                    ahora_click = obtener_hora_peru()
+                    hora_formateada = ahora_click.strftime("%I:%M %p")
                     
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
                     wks.clear()
@@ -178,10 +189,12 @@ try:
                 else:
                     st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
                     
-                    # Se eliminaron los selectores manuales de hora para el egreso.
+                    # Cuadro indicador estático que muestra la hora exacta que se grabará
+                    st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                    st.write("")
+                    
                     if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
-                        # Captura inalterable del tiempo exacto del sistema en el instante del clic
-                        ahora_click = datetime.now()
+                        ahora_click = obtener_hora_peru()
                         hora_formateada = ahora_click.strftime("%I:%M %p")
                         
                         df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
@@ -197,7 +210,7 @@ try:
             # Historial propio estructurado en una tabla limpia
             st.write("")
             with st.expander("Consultar mi historial"):
-                fecha_busqueda = st.date_input("Selecciona fecha:", value=datetime.now().date(), key="cal_asesor")
+                fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
                 if fecha_busqueda:
                     fecha_formateada_busqueda = fecha_busqueda.strftime("%d/%m/%Y")
                     col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
@@ -223,7 +236,7 @@ try:
             with tab_reporte:
                 st.write("")
                 st.markdown("##### Filtro de Asistencia General")
-                fecha_busqueda_admin = st.date_input("Fecha a consultar:", value=datetime.now().date(), key="cal_admin")
+                fecha_busqueda_admin = st.date_input("Fecha a consultar:", value=obtener_hora_peru().date(), key="cal_admin")
                 
                 if fecha_busqueda_admin:
                     fecha_formateada_busqueda = fecha_busqueda_admin.strftime("%d/%m/%Y")

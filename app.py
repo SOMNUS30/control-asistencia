@@ -24,6 +24,21 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 def obtener_hora_peru():
     return datetime.utcnow() - timedelta(hours=5)
 
+# Función auxiliar para calcular la diferencia de horas entre entrada y salida en texto (%I:%M %p)
+def calcular_horas(entrada_str, salida_str):
+    try:
+        if entrada_str in ["Falta", "Permiso", "-", "", "nan", "None"] or salida_str in ["Falta", "Permiso", "-", "", "nan", "None"]:
+            return 0.0
+        t_entrada = datetime.strptime(entrada_str, "%I:%M %p")
+        t_salida = datetime.strptime(salida_str, "%I:%M %p")
+        # Si la salida es menor que la entrada, se asume que pasó al día siguiente
+        if t_salida < t_entrada:
+            t_salida += timedelta(days=1)
+        diferencia = t_salida - t_entrada
+        return diferencia.total_seconds() / 3600.0
+    except Exception:
+        return 0.0
+
 # Configuracion de pagina con diseno responsivo y centrado sin emoticonos
 st.set_page_config(page_title="Control de Asistencia", page_icon=None, layout="centered")
 
@@ -75,11 +90,9 @@ try:
         st.session_state.usuario_actual = ""
 
     if not st.session_state.autenticado:
-        # Espacio superior para centrar verticalmente la tarjeta
         st.write("")
         st.write("")
         
-        # Columnas para encuadrar el login en un rectángulo vertical centrado (Formato Tarjeta)
         col_izq, col_centro, col_der = st.columns([1, 1.6, 1])
         
         with col_centro:
@@ -108,7 +121,6 @@ try:
         
         es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
         
-        # Unificación de la estructura de pestañas para evitar errores de renderizado del Administrador
         if es_admin:
             st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
             tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
@@ -118,7 +130,6 @@ try:
 
         fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
         
-        # Lectura segura y limpia de los estados de las celdas
         marca_entrada = str(fila_usuario.iloc[0][col_entrada]).strip() if not pd.isna(fila_usuario.iloc[0][col_entrada]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
@@ -128,7 +139,6 @@ try:
         with tab_marcado:
             st.write("")
             
-            # Verificación interactiva de ubicación por GPS usando el navegador movil o pc
             st.markdown("##### Verificación de Ubicación Requerida")
             st.markdown("<small style='color:gray;'>Haz clic en el botón de abajo para activar tu GPS e iniciar la verificación de rango.</small>", unsafe_allow_html=True)
             loc = streamlit_geolocation()
@@ -150,14 +160,12 @@ try:
             
             st.write("---")
             
-            # Cálculo exacto de la hora de visualización previa al envío
             tiempo_peru_actual = obtener_hora_peru()
             hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
             
             if marca_entrada in ["Falta", "-", "", "nan", "None"]:
                 st.info("Estado: Sin registro de ingreso hoy.")
                 
-                # Cuadro indicador estático que muestra la hora exacta que se grabará
                 st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                 st.write("")
                 
@@ -189,7 +197,6 @@ try:
                 else:
                     st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
                     
-                    # Cuadro indicador estático que muestra la hora exacta que se grabará
                     st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                     st.write("")
                     
@@ -207,7 +214,7 @@ try:
             else:
                 st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Salida: {marca_salida}")
 
-            # Historial propio estructurado en una tabla limpia
+            # Historial propio estructurado en una tabla limpia con cálculos de horas
             st.write("")
             with st.expander("Consultar mi historial"):
                 fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
@@ -217,17 +224,40 @@ try:
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                     
                     if col_hist_ent in df.columns and col_hist_sal in df.columns:
-                        val_ent = fila_usuario.iloc[0][col_hist_ent]
-                        val_sal = fila_usuario.iloc[0][col_hist_sal]
+                        val_ent = str(fila_usuario.iloc[0][col_hist_ent]).strip()
+                        val_sal = str(fila_usuario.iloc[0][col_hist_sal]).strip()
+                        
+                        horas_dia = calcular_horas(val_ent, val_sal)
                         
                         df_individual = pd.DataFrame({
                             "Usuario": [st.session_state.usuario_actual],
                             "Entrada": [val_ent],
-                            "Salida": [val_sal]
+                            "Salida": [val_sal],
+                            "Horas Trabajadas": [f"{horas_dia:.2f} hrs" if horas_dia > 0 else "0.00 hrs"]
                         })
                         st.dataframe(df_individual, use_container_width=True, hide_index=True)
                     else:
-                        st.caption("Sin registros para esta fecha.")
+                        st.caption("Sin registros para esta fecha específica.")
+                    
+                    # =========================================================
+                    # CÁLCULO AUTOMÁTICO TOTAL DEL MES
+                    # =========================================================
+                    st.markdown("---")
+                    st.markdown(f"##### Resumen Mensual ({nombre_pestana})")
+                    
+                    total_horas_mes = 0.0
+                    # Recorrer las columnas buscando pares de Entrada/Salida para computar todo el mes
+                    for col in df.columns:
+                        if " (Entrada)" in col:
+                            col_base_fecha = col.replace(" (Entrada)", "")
+                            col_salida_par = f"{col_base_fecha} (Salida)"
+                            
+                            if col_salida_par in df.columns:
+                                v_e = str(fila_usuario.iloc[0][col]).strip()
+                                v_s = str(fila_usuario.iloc[0][col_salida_par]).strip()
+                                total_horas_mes += calcular_horas(v_e, v_s)
+                    
+                    st.metric(label="Total acumulado en el mes", value=f"{total_horas_mes:.2f} Horas")
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (SOLO VISIBLE PARA EL ADMIN)

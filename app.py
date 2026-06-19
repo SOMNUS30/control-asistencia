@@ -118,22 +118,6 @@ try:
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
         # =========================================================
-        # CÁLCULO DE HORA ACTUAL AUTOMÁTICA EN FORMATO 12 HORAS
-        # =========================================================
-        ahora = datetime.now()
-        hora_24 = ahora.hour
-        minuto_actual = ahora.minute
-
-        periodo_actual_idx = 1 if hora_24 >= 12 else 0
-        hora_12 = hora_24 % 12
-        if hora_12 == 0:
-            hora_12 = 12
-            
-        idx_hora = hora_12 - 1
-        idx_minuto = minuto_actual
-        # =========================================================
-
-        # =========================================================
         # PESTAÑA 1: PANEL DE MARCADO DIARIO (ADMIN Y ASESORES)
         # =========================================================
         with tab_marcado:
@@ -163,25 +147,17 @@ try:
             
             if marca_entrada in ["Falta", "-", "", "nan", "None"]:
                 st.info("Estado: Sin registro de ingreso hoy.")
-                st.markdown("Selecciona tu hora de Entrada:")
                 
-                c1, c2, c3 = st.columns([1, 1, 1])
-                with c1:
-                    h_ent = st.selectbox("Hora", [f"{i:02d}" for i in range(1, 13)], index=idx_hora, key="sel_h_ent")
-                with c2:
-                    m_ent = st.selectbox("Minuto", [f"{i:02d}" for i in range(0, 60)], index=idx_minuto, key="sel_m_ent")
-                with c3:
-                    p_ent = st.selectbox("Periodo", ["AM", "PM"], index=periodo_actual_idx, key="sel_p_ent")
-                
-                st.write("")
-                
-                # Botón condicionado a la geocerca de 2 km
+                # Se eliminaron los selectores manuales de hora. Ahora solo se muestra el botón seguro.
                 if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
-                    hora_formateada = f"{h_ent}:{m_ent} {p_ent}"
+                    # Captura inalterable del tiempo exacto del sistema en el instante del clic
+                    ahora_click = datetime.now()
+                    hora_formateada = ahora_click.strftime("%I:%M %p") # Ejemplo: "08:30 AM" o "02:15 PM"
+                    
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
                     wks.clear()
                     set_with_dataframe(wks, df)
-                    st.success(f"Entrada registrada: {hora_formateada}")
+                    st.success(f"Entrada registrada automáticamente: {hora_formateada}")
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
                     st.rerun()
@@ -201,25 +177,17 @@ try:
                     st.info("Tu estado de hoy es: Permiso.")
                 else:
                     st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
-                    st.markdown("Selecciona tu hora de Salida:")
                     
-                    c1, c2, c3 = st.columns([1, 1, 1])
-                    with c1:
-                        h_sal = st.selectbox("Hora", [f"{i:02d}" for i in range(1, 13)], index=idx_hora, key="sel_h_sal")
-                    with c2:
-                        m_sal = st.selectbox("Minuto", [f"{i:02d}" for i in range(0, 60)], index=idx_minuto, key="sel_m_sal")
-                    with c3:
-                        p_sal = st.selectbox("Periodo", ["AM", "PM"], index=periodo_actual_idx, key="sel_p_sal")
-                    
-                    st.write("")
-                    
-                    # Botón condicionado a la geocerca de 2 km
+                    # Se eliminaron los selectores manuales de hora para el egreso.
                     if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
-                        hora_formateada = f"{h_sal}:{m_sal} {p_sal}"
+                        # Captura inalterable del tiempo exacto del sistema en el instante del clic
+                        ahora_click = datetime.now()
+                        hora_formateada = ahora_click.strftime("%I:%M %p")
+                        
                         df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
                         wks.clear()
                         set_with_dataframe(wks, df)
-                        st.success(f"Salida registrada: {hora_formateada}")
+                        st.success(f"Salida registrada automáticamente: {hora_formateada}")
                         st.session_state.autenticado = False
                         st.session_state.usuario_actual = ""
                         st.rerun()

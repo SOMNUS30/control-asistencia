@@ -4,7 +4,7 @@ from gspread_dataframe import get_as_dataframe, set_with_dataframe
 import pandas as pd
 from datetime import datetime
 import math
-from streamlit_js_eval import streamlit_js_eval
+from streamlit_geolocation import streamlit_geolocation
 
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0639
@@ -139,15 +139,16 @@ try:
         with tab_marcado:
             st.write("")
             
-            # Verificación interactiva de ubicación por GPS usando el navegador
+            # Verificación interactiva de ubicación por GPS usando el navegador movil o pc
             st.markdown("##### Verificación de Ubicación Requerida")
-            loc = streamlit_js_eval(data_of='geolocation', stop_after_pose=True, key='GPS_USER')
+            st.markdown("<small style='color:gray;'>Haz clic en el botón de abajo para activar tu GPS e iniciar la verificación de rango.</small>", unsafe_allow_html=True)
+            loc = streamlit_geolocation()
             
             ubicacion_valida = False
             
-            if loc:
-                lat_user = loc['coords']['latitude']
-                lon_user = loc['coords']['longitude']
+            if loc and loc['latitude'] is not None:
+                lat_user = loc['latitude']
+                lon_user = loc['longitude']
                 distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
                 
                 if distancia_km <= RADIO_MAX_KM:
@@ -156,7 +157,7 @@ try:
                 else:
                     st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
             else:
-                st.warning("Por favor, asegúrate de activar el GPS y otorgar permisos de ubicación en tu navegador web para registrar asistencia.")
+                st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
             
             st.write("---")
             

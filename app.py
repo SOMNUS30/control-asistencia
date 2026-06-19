@@ -31,8 +31,8 @@ MESES_ESPANOL = {
 }
 
 try:
-    # Conexión utilizando los Secrets de Streamlit Cloud para producción
-    gc = gspread.service_account_from_dict(st.secrets["gspread"])
+    # Conexión utilizando los Secrets de Streamlit Cloud para producción (Convertido a diccionario explícito)
+    gc = gspread.service_account_from_dict(dict(st.secrets["gspread"]))
     
     # Conexión directa con tu ID de Google Sheets
     hoja_calculo = gc.open_by_key('1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU')

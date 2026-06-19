@@ -3,3 +3,4 @@ gspread
 gspread-dataframe
 pandas
 streamlit-js-eval
+streamlit-geolocation

@@ -53,7 +53,7 @@ def calcular_minutos_netos_raw(entrada_str, ref_inicio_str, ref_fin_str, salida_
 def formatear_minutos_a_string(minutos_totales):
     if minutos_totales <= 0:
         return "0 h 0 min"
-    horas = minutos_totales // 60
+    horas = minutes_totales // 60
     minutos = minutos_totales % 60
     return f"{horas} h {minutos} min"
 
@@ -147,11 +147,12 @@ try:
         
         es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
         
+        # Muestra el nombre del usuario actual en un tamaño más grande y de color verde
         if es_admin:
-            st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
+            st.markdown(f"<p style='font-size: 18px; color: #2E7D32; margin-top: 5px; margin-bottom: 15px;'><b>Usuario: {st.session_state.usuario_actual} (Administrador)</b></p>", unsafe_allow_html=True)
             tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
         else:
-            st.caption(f"Usuario: {st.session_state.usuario_actual}")
+            st.markdown(f"<p style='font-size: 18px; color: #2E7D32; margin-top: 5px; margin-bottom: 15px;'><b>Usuario: {st.session_state.usuario_actual}</b></p>", unsafe_allow_html=True)
             tab_marcado, = st.tabs(["Mi Marcado"])
 
         fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
@@ -170,7 +171,69 @@ try:
             
             st.markdown("##### Verificación de Ubicación Requerida")
             st.markdown("<small style='color:gray;'>Haz clic en el botón de abajo para activar tu GPS e iniciar la verificación de rango.</small>", unsafe_allow_html=True)
-            loc = streamlit_geolocation()
+            
+            # Estilos CSS inyectados para convertir el botón nativo del GPS en un botón grande azul que dice "Comprobar ubicación"
+            st.markdown("""
+                <style>
+                div[data-testid="stMarkdownContainer"] + div iframe {
+                    display: none;
+                }
+                .stButton button:has(div:contains("📍")) {
+                    display: none !important;
+                }
+                div button[style*="background-color"] {
+                    display: none !important;
+                }
+                button.gsc-button, .st-key-gps_btn button, div div button:not([data-testid="stBaseButton-secondary"]) {
+                    /* Marcador de estilo vacío por herencia general */
+                }
+                /* Forzado de apariencia para el componente de Geolocalización */
+                iframe {
+                    background-color: transparent;
+                }
+                button div p:contains("📍") {
+                    display:none;
+                }
+                /* Modificación estética directa sobre el botón interno generado por el objeto iframe/component */
+                div[class*="streamlit-geolocation"] button, button[id*="geolocation"] {
+                     background-color: #0066cc !important;
+                     color: white !important;
+                }
+                </style>
+                <style>
+                /* Estilo alternativo directo sobre el contenedor div del componente */
+                iframe[title="streamlit_geolocation.streamlit_geolocation"] {
+                    border: none;
+                }
+                /* Modificación visual usando selectores estándar de Streamlit para el botón del GPS */
+                div.element-container:has(iframe[title="streamlit_geolocation.streamlit_geolocation"]) button {
+                    background-color: #0066cc !important;
+                    color: white !important;
+                    width: 100%;
+                    border-radius: 4px;
+                    padding: 6px;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            # Código para inyectar un botón estilizado con texto personalizado que ejecuta el trigger del iframe real
+            st.markdown("""
+                <style>
+                /* Reestilización completa del botón nativo de la geolocalización */
+                div[data-testid="stVerticalBlock"] div:has(iframe[title="streamlit_geolocation.streamlit_geolocation"]) button {
+                    background-color: #0066cc !important;
+                    color: white !important;
+                    border: 1px solid #0066cc !important;
+                    width: 100% !important;
+                    min-height: 40px;
+                    border-radius: 6px;
+                    font-size: 16px !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # Ejecución del componente. Se le pasa una etiqueta limpia que se procesa como texto interno del botón en las nuevas versiones
+            loc = streamlit_geolocation(label="Comprobar ubicación")
             
             ubicacion_valida = False
             
@@ -185,7 +248,7 @@ try:
                 else:
                     st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
             else:
-                st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
+                st.warning("Por favor, pulsa el botón 'Comprobar ubicación' de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
             
             st.write("---")
             

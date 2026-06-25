@@ -233,7 +233,7 @@ try:
             """, unsafe_allow_html=True)
 
             # Ejecución del componente. Se le pasa una etiqueta limpia que se procesa como texto interno del botón en las nuevas versiones
-            loc = streamlit_geolocation(label="Comprobar ubicación")
+            loc = streamlit_geolocation()
             
             ubicacion_valida = False
             

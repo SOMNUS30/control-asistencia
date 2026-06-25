@@ -37,7 +37,7 @@ def calcular_horas_netas(entrada_str, ref_inicio_str, ref_fin_str, salida_str):
             
         total_jornada = (t_salida - t_entrada).total_seconds() / 3600.0
         
-        # Calcular tiempo de refrigerio si ambas marcas existen
+        # Calcular tiempo de refrigerio si ambas marcas existen y no están vacías
         tiempo_refrigerio = 0.0
         if ref_inicio_str not in ["Falta", "Permiso", "-", "", "nan", "None"] and ref_fin_str not in ["Falta", "Permiso", "-", "", "nan", "None"]:
             t_ref_in = datetime.strptime(ref_inicio_str, "%I:%M %p")
@@ -171,7 +171,7 @@ try:
             if loc and loc['latitude'] is not None:
                 lat_user = loc['latitude']
                 lon_user = loc['longitude']
-                distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
+                distancia_km = calculus_distancia = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
                 
                 if distancia_km <= RADIO_MAX_KM:
                     ubicacion_valida = True
@@ -186,7 +186,7 @@ try:
             tiempo_peru_actual = obtener_hora_peru()
             hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
             
-            # FLUJO SECUENCIAL CONTROLADO DE BOTONES
+            # CASO 1: NO TIENE ENTRADA REGISTRADA
             if marca_entrada in ["Falta", "-", "", "nan", "None"]:
                 st.info("Estado: Sin registro de ingreso hoy.")
                 st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
@@ -218,44 +218,46 @@ try:
             elif marca_entrada == "Permiso":
                 st.info("Tu estado de hoy es: Permiso.")
                 
-            elif marca_ref_salida in ["Falta", "-", "", "nan", "None"]:
-                st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
+            # CASO 2: JORNADA YA COMPLETADA TOTALMENTE
+            elif marca_salida not in ["Falta", "-", "", "nan", "None"]:
+                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Ref: {marca_ref_salida} - {marca_ref_retorno} | Salida: {marca_salida}")
+                
+            # CASO 3: TIENE ENTRADA PERO NO TIENE SALIDA FINAL (Botones flexibles disponibles)
+            else:
+                st.warning(f"Ingreso registrado a las: {marca_entrada}")
                 st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                 st.write("")
                 
-                if st.button("Iniciar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
-                    ahora_click = obtener_hora_peru()
-                    hora_formateada = ahora_click.strftime("%I:%M %p")
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
-                    wks.clear()
-                    set_with_dataframe(wks, df)
-                    st.success(f"Salida a refrigerio registrada: {hora_formateada}")
-                    st.session_state.autenticado = False
-                    st.session_state.usuario_actual = ""
-                    st.rerun()
-                    
-            elif marca_ref_retorno in ["Falta", "-", "", "nan", "None"]:
-                st.info(f"Entrada: {marca_entrada} | Saliste a refrigerio a las: {marca_ref_salida}")
-                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
-                st.write("")
+                # Sub-bloque para el botón de refrigerio dinámico
+                if marca_ref_salida in ["Falta", "-", "", "nan", "None"]:
+                    if st.button("Iniciar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                        ahora_click = obtener_hora_peru()
+                        hora_formateada = ahora_click.strftime("%I:%M %p")
+                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
+                        wks.clear()
+                        set_with_dataframe(wks, df)
+                        st.success(f"Salida a refrigerio registrada: {hora_formateada}")
+                        st.session_state.autenticado = False
+                        st.session_state.usuario_actual = ""
+                        st.rerun()
+                elif marca_ref_retorno in ["Falta", "-", "", "nan", "None"]:
+                    st.info(f"Saliste a almuerzo a las: {marca_ref_salida}")
+                    if st.button("Terminar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                        ahora_click = obtener_hora_peru()
+                        hora_formateada = ahora_click.strftime("%I:%M %p")
+                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
+                        wks.clear()
+                        set_with_dataframe(wks, df)
+                        st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
+                        st.session_state.autenticado = False
+                        st.session_state.usuario_actual = ""
+                        st.rerun()
+                else:
+                    st.info(f"Refrigerio registrado: {marca_ref_salida} a {marca_ref_retorno}")
                 
-                if st.button("Terminar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
-                    ahora_click = obtener_hora_peru()
-                    hora_formateada = ahora_click.strftime("%I:%M %p")
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
-                    wks.clear()
-                    set_with_dataframe(wks, df)
-                    st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
-                    st.session_state.autenticado = False
-                    st.session_state.usuario_actual = ""
-                    st.rerun()
-                    
-            elif marca_salida in ["Falta", "-", "", "nan", "None"]:
-                st.warning(f"Entrada: {marca_entrada} | Ref: {marca_ref_salida} al {marca_ref_retorno}")
-                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                 st.write("")
-                
-                if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
+                # El botón de salida siempre estará disponible si ya marcó entrada, sin importar el almuerzo
+                if st.button("Registrar Salida Final", use_container_width=True, disabled=not ubicacion_valida):
                     ahora_click = obtener_hora_peru()
                     hora_formateada = ahora_click.strftime("%I:%M %p")
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
@@ -265,10 +267,8 @@ try:
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
                     st.rerun()
-            else:
-                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Ref: {marca_ref_salida} - {marca_ref_retorno} | Salida: {marca_salida}")
 
-            # Historial propio optimizado visualmente con desglose de Refrigerio y Fecha
+            # Historial propio estructurado en una tabla limpia
             st.write("")
             with st.expander("Consultar mi historial"):
                 fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
@@ -300,7 +300,7 @@ try:
                         st.caption("Sin registros para esta fecha específica.")
                     
                     # =========================================================
-                    # CÁLCULO MENSUAL NETO OPTIMIZADO (Descontando refrigerios)
+                    # CÁLCULO MENSUAL NETO OPTIMIZADO
                     # =========================================================
                     st.markdown("---")
                     st.markdown(f"##### Resumen Mensual ({nombre_pestana})")

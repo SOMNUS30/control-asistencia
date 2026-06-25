@@ -323,7 +323,7 @@ try:
                                 v_rr = str(fila_usuario.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df.columns else ""
                                 v_s = str(fila_usuario.iloc[0][col_salida_par]).strip()
                                 
-                                total_minutos_mes += calcular_minutos_netas_raw = calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
+                                total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
                     
                     st.metric(label="Total neto acumulado en el mes", value=formatear_minutos_a_string(total_minutos_mes))
 
@@ -344,7 +344,6 @@ try:
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                     
                     if col_hist_ent in df.columns and col_hist_sal in df.columns:
-                        # Asegurar lectura segura de todas las columnas del dia para construir el reporte general completo
                         df_reporte_raw = []
                         for idx, row in df.iterrows():
                             v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df.columns else "Falta"

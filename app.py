@@ -24,18 +24,30 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 def obtener_hora_peru():
     return datetime.utcnow() - timedelta(hours=5)
 
-# Función auxiliar para calcular la diferencia de horas entre entrada y salida en texto (%I:%M %p)
-def calcular_horas(entrada_str, salida_str):
+# Función auxiliar para calcular la diferencia de horas netas restando el refrigerio si existe
+def calcular_horas_netas(entrada_str, ref_inicio_str, ref_fin_str, salida_str):
     try:
         if entrada_str in ["Falta", "Permiso", "-", "", "nan", "None"] or salida_str in ["Falta", "Permiso", "-", "", "nan", "None"]:
             return 0.0
+            
         t_entrada = datetime.strptime(entrada_str, "%I:%M %p")
         t_salida = datetime.strptime(salida_str, "%I:%M %p")
-        # Si la salida es menor que la entrada, se asume que pasó al día siguiente
         if t_salida < t_entrada:
             t_salida += timedelta(days=1)
-        diferencia = t_salida - t_entrada
-        return diferencia.total_seconds() / 3600.0
+            
+        total_jornada = (t_salida - t_entrada).total_seconds() / 3600.0
+        
+        # Calcular tiempo de refrigerio si ambas marcas existen
+        tiempo_refrigerio = 0.0
+        if ref_inicio_str not in ["Falta", "Permiso", "-", "", "nan", "None"] and ref_fin_str not in ["Falta", "Permiso", "-", "", "nan", "None"]:
+            t_ref_in = datetime.strptime(ref_inicio_str, "%I:%M %p")
+            t_ref_fi = datetime.strptime(ref_fin_str, "%I:%M %p")
+            if t_ref_fi < t_ref_in:
+                t_ref_fi += timedelta(days=1)
+            tiempo_refrigerio = (t_ref_fi - t_ref_in).total_seconds() / 3600.0
+            
+        horas_netas = total_jornada - tiempo_refrigerio
+        return max(0.0, horas_netas)
     except Exception:
         return 0.0
 
@@ -65,16 +77,24 @@ try:
     df = get_as_dataframe(wks).dropna(how="all").dropna(axis=1, how="all")
     
     # =========================================================
-    # AUTOMATIZACIÓN DE FALTAS DIARIAS (Con hora de Perú)
+    # AUTOMATIZACIÓN DE FALTAS DIARIAS CON REFRIGERIO (Hora de Perú)
     # =========================================================
     fecha_hoy = hora_peru_actual.strftime("%d/%m/%Y")
     col_entrada = f"{fecha_hoy} (Entrada)"
+    col_ref_salida = f"{fecha_hoy} (Inicio Ref)"
+    col_ref_retorno = f"{fecha_hoy} (Fin Ref)"
     col_salida = f"{fecha_hoy} (Salida)"
     
     cambio_estructura = False
     
     if col_entrada not in df.columns:
         df[col_entrada] = "Falta"
+        cambio_estructura = True
+    if col_ref_salida not in df.columns:
+        df[col_ref_salida] = "Falta"
+        cambio_estructura = True
+    if col_ref_retorno not in df.columns:
+        df[col_ref_retorno] = "Falta"
         cambio_estructura = True
     if col_salida not in df.columns:
         df[col_salida] = "Falta"
@@ -130,7 +150,10 @@ try:
 
         fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
         
+        # Lecturas de celdas del usuario actual
         marca_entrada = str(fila_usuario.iloc[0][col_entrada]).strip() if not pd.isna(fila_usuario.iloc[0][col_entrada]) else ""
+        marca_ref_salida = str(fila_usuario.iloc[0][col_ref_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_salida]) else ""
+        marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
         # =========================================================
@@ -163,26 +186,27 @@ try:
             tiempo_peru_actual = obtener_hora_peru()
             hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
             
+            # FLUJO SECUENCIAL CONTROLADO DE BOTONES
             if marca_entrada in ["Falta", "-", "", "nan", "None"]:
                 st.info("Estado: Sin registro de ingreso hoy.")
-                
                 st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                 st.write("")
                 
                 if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
                     ahora_click = obtener_hora_peru()
                     hora_formateada = ahora_click.strftime("%I:%M %p")
-                    
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
                     wks.clear()
                     set_with_dataframe(wks, df)
-                    st.success(f"Entrada registrada automáticamente: {hora_formateada}")
+                    st.success(f"Entrada registrada: {hora_formateada}")
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
                     st.rerun()
                 
                 if st.button("Registrar Permiso", use_container_width=True):
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = "Permiso"
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = "Permiso"
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = "Permiso"
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = "Permiso"
                     wks.clear()
                     set_with_dataframe(wks, df)
@@ -191,73 +215,113 @@ try:
                     st.session_state.usuario_actual = ""
                     st.rerun()
                     
+            elif marca_entrada == "Permiso":
+                st.info("Tu estado de hoy es: Permiso.")
+                
+            elif marca_ref_salida in ["Falta", "-", "", "nan", "None"]:
+                st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                st.write("")
+                
+                if st.button("Iniciar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                    ahora_click = obtener_hora_peru()
+                    hora_formateada = ahora_click.strftime("%I:%M %p")
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
+                    wks.clear()
+                    set_with_dataframe(wks, df)
+                    st.success(f"Salida a refrigerio registrada: {hora_formateada}")
+                    st.session_state.autenticado = False
+                    st.session_state.usuario_actual = ""
+                    st.rerun()
+                    
+            elif marca_ref_retorno in ["Falta", "-", "", "nan", "None"]:
+                st.info(f"Entrada: {marca_entrada} | Saliste a refrigerio a las: {marca_ref_salida}")
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                st.write("")
+                
+                if st.button("Terminar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                    ahora_click = obtener_hora_peru()
+                    hora_formateada = ahora_click.strftime("%I:%M %p")
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
+                    wks.clear()
+                    set_with_dataframe(wks, df)
+                    st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
+                    st.session_state.autenticado = False
+                    st.session_state.usuario_actual = ""
+                    st.rerun()
+                    
             elif marca_salida in ["Falta", "-", "", "nan", "None"]:
-                if marca_entrada == "Permiso":
-                    st.info("Tu estado de hoy es: Permiso.")
-                else:
-                    st.warning(f"Entrada registrada hoy a las: {marca_entrada}")
-                    
-                    st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
-                    st.write("")
-                    
-                    if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
-                        ahora_click = obtener_hora_peru()
-                        hora_formateada = ahora_click.strftime("%I:%M %p")
-                        
-                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
-                        wks.clear()
-                        set_with_dataframe(wks, df)
-                        st.success(f"Salida registrada automáticamente: {hora_formateada}")
-                        st.session_state.autenticado = False
-                        st.session_state.usuario_actual = ""
-                        st.rerun()
+                st.warning(f"Entrada: {marca_entrada} | Ref: {marca_ref_salida} al {marca_ref_retorno}")
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                st.write("")
+                
+                if st.button("Registrar Salida", use_container_width=True, disabled=not ubicacion_valida):
+                    ahora_click = obtener_hora_peru()
+                    hora_formateada = ahora_click.strftime("%I:%M %p")
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
+                    wks.clear()
+                    set_with_dataframe(wks, df)
+                    st.success(f"Salida registrada automáticamente: {hora_formateada}")
+                    st.session_state.autenticado = False
+                    st.session_state.usuario_actual = ""
+                    st.rerun()
             else:
-                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Salida: {marca_salida}")
+                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Ref: {marca_ref_salida} - {marca_ref_retorno} | Salida: {marca_salida}")
 
-            # Historial propio estructurado en una tabla limpia con cálculos de horas
+            # Historial propio optimizado visualmente con desglose de Refrigerio y Fecha
             st.write("")
             with st.expander("Consultar mi historial"):
                 fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
                 if fecha_busqueda:
                     fecha_formateada_busqueda = fecha_busqueda.strftime("%d/%m/%Y")
                     col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
+                    col_hist_ref_sal = f"{fecha_formateada_busqueda} (Inicio Ref)"
+                    col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                     
                     if col_hist_ent in df.columns and col_hist_sal in df.columns:
                         val_ent = str(fila_usuario.iloc[0][col_hist_ent]).strip()
+                        val_r_sal = str(fila_usuario.iloc[0][col_hist_ref_sal]).strip() if col_hist_ref_sal in df.columns else ""
+                        val_r_ret = str(fila_usuario.iloc[0][col_hist_ref_ret]).strip() if col_hist_ref_ret in df.columns else ""
                         val_sal = str(fila_usuario.iloc[0][col_hist_sal]).strip()
                         
-                        horas_dia = calcular_horas(val_ent, val_sal)
+                        horas_dia = calcular_horas_netas(val_ent, val_r_sal, val_r_ret, val_sal)
                         
                         df_individual = pd.DataFrame({
-                            "Usuario": [st.session_state.usuario_actual],
+                            "Fecha": [fecha_formateada_busqueda],
                             "Entrada": [val_ent],
+                            "Inicio Ref": [val_r_sal if val_r_sal != "" else "-"],
+                            "Fin Ref": [val_r_ret if val_r_ret != "" else "-"],
                             "Salida": [val_sal],
-                            "Horas Trabajadas": [f"{horas_dia:.2f} hrs" if horas_dia > 0 else "0.00 hrs"]
+                            "Horas Netas": [f"{horas_dia:.2f} hrs" if horas_dia > 0 else "0.00 hrs"]
                         })
                         st.dataframe(df_individual, use_container_width=True, hide_index=True)
                     else:
                         st.caption("Sin registros para esta fecha específica.")
                     
                     # =========================================================
-                    # CÁLCULO AUTOMÁTICO TOTAL DEL MES
+                    # CÁLCULO MENSUAL NETO OPTIMIZADO (Descontando refrigerios)
                     # =========================================================
                     st.markdown("---")
                     st.markdown(f"##### Resumen Mensual ({nombre_pestana})")
                     
                     total_horas_mes = 0.0
-                    # Recorrer las columnas buscando pares de Entrada/Salida para computar todo el mes
                     for col in df.columns:
                         if " (Entrada)" in col:
                             col_base_fecha = col.replace(" (Entrada)", "")
+                            col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
+                            col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
                             col_salida_par = f"{col_base_fecha} (Salida)"
                             
                             if col_salida_par in df.columns:
                                 v_e = str(fila_usuario.iloc[0][col]).strip()
+                                v_rs = str(fila_usuario.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df.columns else ""
+                                v_rr = str(fila_usuario.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df.columns else ""
                                 v_s = str(fila_usuario.iloc[0][col_salida_par]).strip()
-                                total_horas_mes += calcular_horas(v_e, v_s)
+                                
+                                total_horas_mes += calcular_horas_netas(v_e, v_rs, v_rr, v_s)
                     
-                    st.metric(label="Total acumulado en el mes", value=f"{total_horas_mes:.2f} Horas")
+                    st.metric(label="Total neto acumulado en el mes", value=f"{total_horas_mes:.2f} Horas")
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (SOLO VISIBLE PARA EL ADMIN)

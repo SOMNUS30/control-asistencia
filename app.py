@@ -162,6 +162,26 @@ try:
         marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
+        # Inyección de estilos CSS para los colores específicos de los botones de marcado
+        st.markdown("""
+            <style>
+            /* Botón Registrar Entrada e Iniciar Refrigerio (Verde) */
+            div[data-testid="stButton"] button:has(div p:contains("Registrar Entrada")),
+            div[data-testid="stButton"] button:has(div p:contains("Iniciar Refrigerio")) {
+                background-color: #2E7D32 !important;
+                color: white !important;
+                border: 1px solid #2E7D32 !important;
+            }
+            /* Botón Terminar Refrigerio y Registrar Salida Final (Rojo) */
+            div[data-testid="stButton"] button:has(div p:contains("Terminar Refrigerio")),
+            div[data-testid="stButton"] button:has(div p:contains("Registrar Salida Final")) {
+                background-color: #C62828 !important;
+                color: white !important;
+                border: 1px solid #C62828 !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
         # =========================================================
         # PESTAÑA 1: PANEL DE MARCADO DIARIO (ADMIN Y ASESORES)
         # =========================================================
@@ -325,7 +345,8 @@ try:
                                 
                                 total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
                     
-                    st.metric(label="Total neto acumulado en el mes", value=formatear_minutos_a_string(total_minutos_mes))
+                    string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
+                    st.metric(label="Total neto acumulado en el mes", value=string_acumulado_real)
 
                     # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
                     if "Meta" in df.columns:
@@ -340,12 +361,12 @@ try:
                             total_horas_mes = total_minutos_mes / 60.0
                             porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
                             st.write("")
-                            st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({total_horas_mes:.1f} h / {meta_horas:.0f} h)")
+                            st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
                             st.progress(porcentaje_avance)
                             
-                            horas_restantes = meta_horas - total_horas_mes
-                            if horas_restantes > 0:
-                                st.caption(f"Faltan **{horas_restantes:.1f} horas** para cumplir tu meta del mes.")
+                            minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
+                            if minutos_restantes > 0:
+                                st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
                             else:
                                 st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 

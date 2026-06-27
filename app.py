@@ -162,19 +162,27 @@ try:
         marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
-        # Inyección de estilos CSS para los colores específicos de los botones de marcado
+        # Inyección de estilos CSS infalibles basados en data-testid y herencia de selectores estables
         st.markdown("""
             <style>
-            /* Botón Registrar Entrada e Iniciar Refrigerio (Verde) */
-            div[data-testid="stButton"] button:has(div p:contains("Registrar Entrada")),
-            div[data-testid="stButton"] button:has(div p:contains("Iniciar Refrigerio")) {
+            /* Buscar y formatear de forma segura los botones segun su orden y texto */
+            button[data-testid="stBaseButton-secondary"] {
+                transition: background-color 0.2s;
+            }
+            /* Forzar estilos basados en coincidencia exacta de texto interno */
+            div[data-testid="stButton"] button div p {
+                font-weight: bold !important;
+            }
+            /* Selector por texto para Registrar Entrada e Iniciar Refrigerio (Verde) */
+            div[data-testid="stButton"]:has(button div p:contains("Registrar Entrada")) button,
+            div[data-testid="stButton"]:has(button div p:contains("Iniciar Refrigerio")) button {
                 background-color: #2E7D32 !important;
                 color: white !important;
                 border: 1px solid #2E7D32 !important;
             }
-            /* Botón Terminar Refrigerio y Registrar Salida Final (Rojo) */
-            div[data-testid="stButton"] button:has(div p:contains("Terminar Refrigerio")),
-            div[data-testid="stButton"] button:has(div p:contains("Registrar Salida Final")) {
+            /* Selector por texto para Terminar Refrigerio y Registrar Salida Final (Rojo) */
+            div[data-testid="stButton"]:has(button div p:contains("Terminar Refrigerio")) button,
+            div[data-testid="stButton"]:has(button div p:contains("Registrar Salida Final")) button {
                 background-color: #C62828 !important;
                 color: white !important;
                 border: 1px solid #C62828 !important;

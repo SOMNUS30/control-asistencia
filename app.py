@@ -271,14 +271,14 @@ try:
 
         with col_centro:
             with st.container():
-                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Consulta de Trabajador</h2>", unsafe_allow_html=True)
+                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Control de asistencia</h2>", unsafe_allow_html=True)
                 st.markdown("<p style='text-align: center; color: #747d8c; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
                 
-                codigo_ingresado = st.text_input("DNI / Código de Asesor", type="password")
+                codigo_ingresado = st.text_input("Código de Asesor", type="password")
                 
                 st.write("") 
                 
-                if st.button("CONSULTAR TODO", use_container_width=True):
+                if st.button("INICIAR SESIÓN", use_container_width=True):
                     df["Codigo"] = df["Codigo"].astype(str).str.split('.').str[0].str.strip()
                     codigo_ingresado = str(codigo_ingresado).strip()
                     

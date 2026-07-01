@@ -300,7 +300,7 @@ try:
 
         with col_centro:
             with st.container():
-                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Login</h2>", unsafe_allow_html=True)
+                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Bienvenido</h2>", unsafe_allow_html=True)
                 st.markdown("<p style='text-align: center; color: #747d8c; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
                 
                 codigo_ingresado = st.text_input("Código de Asesor", type="password")

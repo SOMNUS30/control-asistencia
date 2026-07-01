@@ -129,7 +129,7 @@ try:
                 background: transparent !important;
             }
 
-            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE INTACTO --- */
+            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE PERFECTO E INTACTO --- */
             @media (min-width: 769px) {
                 div[data-testid="stHorizontalBlock"] {
                     background-color: #ffffff !important;
@@ -191,42 +191,56 @@ try:
                 }
             }
 
-            /* --- CONFIGURACIÓN CORREGIDA Y LIMPIA PARA CELULAR --- */
+            /* --- CONFIGURACIÓN DE LIBERACIÓN TOTAL PARA CELULAR (100% PANTALLA COMPLETA) --- */
             @media (max-width: 768px) {
-                /* Quitamos los márgenes globales que Streamlit le pone a la página en celulares */
-                .stMainBlockContainer {
+                /* 1. Forzamos al contenedor principal de la página a liberar todo el ancho y alto en móviles */
+                .stMainBlockContainer, .block-container {
                     padding: 0px !important;
                     margin: 0px !important;
                     max-width: 100% !important;
+                    width: 100% !important;
                 }
                 
-                /* El bloque contenedor ocupará todo el ancho disponible */
+                /* 2. Reseteamos los contenedores internos nativos intermedios de Streamlit para que no asfixien el diseño */
+                div[data-testid="stElementContainer"], div[data-testid="stVerticalBlock"] {
+                    padding: 0px !important;
+                    margin: 0px !important;
+                    width: 100% !important;
+                }
+
+                /* 3. Forzamos a las columnas a unirse y ocupar el 100% real sin simular tarjetas flotantes grises */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
                     background-color: #ffffff !important;
                     width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    gap: 0 !important;
+                    min-height: 100vh !important; /* Llena toda la pantalla vertical del móvil */
+                    margin: 0px !important;
+                    padding: 0px !important;
+                    gap: 0px !important;
+                    border: none !important;
+                    border-radius: 0px !important;
+                    box-shadow: none !important;
                 }
 
-                /* Cabecera azul superior en el móvil: compacta y sin márgenes */
+                /* Cabecera azul superior en móvil: delgada, estirada completamente de extremo a extremo */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
-                    padding: 20px 10px !important;
-                    margin: 0 !important;
+                    padding: 25px 0px !important;
+                    margin: 0px !important;
+                    width: 100% !important;
                     text-align: center !important;
                     border-radius: 0px !important;
+                    box-shadow: 0px 3px 10px rgba(0,0,0,0.1) !important;
                 }
 
-                /* Ocultamos los textos largos del panel azul en el celular */
+                /* Ocultamos los textos que deforman o ensanchan verticalmente la franja superior */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) h1,
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) p {
                     display: none !important;
                 }
 
-                /* Pequeño logo 'B' en la barra superior */
+                /* Mini Logo 'B' minimalista integrado en la barra azul del móvil */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
                     content: "B";
                     font-family: sans-serif;
@@ -239,18 +253,19 @@ try:
                     display: inline-block;
                 }
 
-                /* El formulario se expande al 100% de la pantalla del celular sin cajas grises */
+                /* Cuerpo del Formulario: Ocupa todo el ancho inferior restante sin dobles bordes grises */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 30px 20px !important;
-                    margin: 0 !important;
+                    padding: 35px 24px !important;
+                    margin: 0px !important;
+                    width: 100% !important;
                     background-color: #ffffff !important;
                 }
 
-                /* Limpieza total de fondos grises o dobles bordes que mete Streamlit por defecto */
+                /* Forzar eliminación de cualquier fondo gris remanente en las sub-cajas móviles */
                 div[data-testid="stVerticalBlock"] > div {
                     background-color: transparent !important;
                     box-shadow: none !important;
-                    padding: 0 !important;
+                    padding: 0px !important;
                     border: none !important;
                 }
             }

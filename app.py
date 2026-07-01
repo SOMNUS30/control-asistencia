@@ -129,7 +129,7 @@ try:
                 background: transparent !important;
             }
 
-            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) --- */
+            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE INTACTO --- */
             @media (min-width: 769px) {
                 /* Forzar la fila contenedora para que actue como el diseño dividido */
                 div[data-testid="stHorizontalBlock"] {
@@ -197,31 +197,56 @@ try:
                 }
             }
 
-            /* --- CONFIGURACIÓN PARA CELULAR (MÓVIL) --- */
+            /* --- CONFIGURACIÓN OPTIMIZADA PARA CELULAR (MÓVIL) --- */
             @media (max-width: 768px) {
-                /* Caja vertical fluida */
+                /* Contenedor principal sin bordes raros externos en celular */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
-                    gap: 0 !important;
+                    background-color: #ffffff !important;
+                    border-radius: 28px !important;
+                    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.05) !important;
+                    overflow: hidden !important;
+                    margin: 0 !important;
                     padding: 0 !important;
+                    border: none !important;
                 }
-                /* El bloque 1 se convierte en la cabecera curva superior azul del celular */
+                /* La franja azul de arriba reducida drásticamente (sin textos que estiren) */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
-                    padding: 50px 20px !important;
-                    text-align: center !important;
-                    border-radius: 0 0 40px 40px !important;
-                    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1) !important;
+                    padding: 25px 15px !important;
+                    border-radius: 0 !important;
+                    box-shadow: none !important;
                 }
-                /* Estilización de la tarjeta del login inferior que aloja los inputs en el celular */
+                /* Ocultar los textos redundantes del panel azul solo en celular para dar espacio */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1) h1,
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1) p {
+                    display: none !important;
+                }
+                /* Forzar que un pseudo-elemento actúe como isotipo 'B' discreto arriba en celular */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
+                    content: "B";
+                    font-family: sans-serif;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: white;
+                    border: 3px solid white;
+                    border-radius: 8px;
+                    padding: 2px 12px;
+                    display: inline-block;
+                }
+                /* Quitar el recuadro blanco interno redundante de Streamlit para que no se vea doble borde */
                 div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
+                    background-color: transparent !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    border: none !important;
+                    margin-top: 0 !important;
+                }
+                /* Panel del formulario propiamente dicho con padding cómodo en celular */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+                    padding: 30px 20px 40px 20px !important;
                     background-color: #ffffff !important;
-                    border-radius: 24px !important;
-                    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.04) !important;
-                    padding: 35px 24px !important;
-                    border: 1px solid #e1e4e8 !important;
-                    margin-top: 25px !important;
                 }
             }
 
@@ -265,7 +290,6 @@ try:
         col_izq, col_centro = st.columns([1, 1.2])
         
         with col_izq:
-            # En PC este bloque aloja el texto decorativo blanco. En celular opera como la cabecera superior.
             st.markdown("<h1 style='text-align: center; color: white; font-size: 28px; font-weight: 800; margin: 0;'>Bienvenido</h1>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 5px;'>Inicia sesión con código de usuario para continuar</p>", unsafe_allow_html=True)
 

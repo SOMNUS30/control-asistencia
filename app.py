@@ -16,9 +16,9 @@ from streamlit_geolocation import streamlit_geolocation
 
 # Coordenadas del punto central requerido (Ica, Perú)
 
-LAT_OBJETIVO = -14.0639
+LAT_OBJETIVO = -14.0780018
 
-LON_OBJETIVO = -75.7292
+LON_OBJETIVO = -75.7399245
 
 RADIO_MAX_KM = 2.0
 

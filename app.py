@@ -162,11 +162,71 @@ try:
         marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
         marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
-        # Inyección única de estilos para forzar las letras de todos los botones en negrita
+        # Inyección única de estilos globales para forzar las letras de todos los botones en negrita y las tarjetas personalizadas
         st.markdown("""
             <style>
             div[data-testid="stButton"] button div p {
                 font-weight: bold !important;
+            }
+            /* Clases globales estéticas basadas en la referencia */
+            .custom-card {
+                background-color: #ffffff;
+                border-radius: 14px;
+                box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.06);
+                margin-bottom: 20px;
+                overflow: hidden;
+                border: 1px solid #eaeaea;
+            }
+            .custom-card-header {
+                padding: 12px 16px;
+                color: white;
+                font-weight: bold;
+                font-size: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .custom-card-header.blue {
+                background-color: #3b5998;
+            }
+            .custom-card-header.teal {
+                background-color: #008080;
+            }
+            .custom-card-body {
+                padding: 16px;
+                background-color: #fcfcfc;
+            }
+            .custom-badge {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                text-transform: uppercase;
+            }
+            .custom-badge.active {
+                background-color: #4cd137;
+                color: white;
+            }
+            .custom-badge.pending {
+                background-color: #eccc68;
+                color: #2f3542;
+            }
+            .custom-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #f1f2f6;
+                font-size: 14px;
+            }
+            .custom-row:last-child {
+                border-bottom: none;
+            }
+            .custom-label {
+                color: #747d8c;
+            }
+            .custom-value {
+                color: #2f3542;
+                font-weight: 500;
             }
             </style>
         """, unsafe_allow_html=True)
@@ -299,16 +359,26 @@ try:
                         val_sal = str(fila_usuario.iloc[0][col_hist_sal]).strip()
                         
                         minutos_dia = calcular_minutos_netos_raw(val_ent, val_r_sal, val_r_ret, val_sal)
+                        badge_status = "active" if val_sal not in ["Falta", "Permiso", "-", ""] else "pending"
+                        badge_label = "Completo" if badge_status == "active" else "Incompleto"
                         
-                        df_individual = pd.DataFrame({
-                            "Fecha": [fecha_formateada_busqueda],
-                            "Entrada": [val_ent],
-                            "Inicio Ref": [val_r_sal if val_r_sal != "" else "-"],
-                            "Fin Ref": [val_r_ret if val_r_ret != "" else "-"],
-                            "Salida": [val_sal],
-                            "Horas Netas": [formatear_minutos_a_string(minutos_dia)]
-                        })
-                        st.dataframe(df_individual, use_container_width=True, hide_index=True)
+                        # Inyección estética del Card tipo AFP/SIS para el Historial Diario
+                        st.markdown(f"""
+                            <div class="custom-card">
+                                <div class="custom-card-header blue">
+                                    <span>Historial de Marcado</span>
+                                    <span class="custom-badge {badge_status}">{badge_label}</span>
+                                </div>
+                                <div class="custom-card-body">
+                                    <div class="custom-row"><span class="custom-label">Fecha:</span><span class="custom-value">{fecha_formateada_busqueda}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Entrada:</span><span class="custom-value">{val_ent}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Inicio Ref:</span><span class="custom-value">{val_r_sal if val_r_sal != "" else "-"}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Fin Ref:</span><span class="custom-value">{val_r_ret if val_r_ret != "" else "-"}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Salida:</span><span class="custom-value">{val_sal}</span></div>
+                                    <div class="custom-row" style="font-weight:bold;"><span class="custom-label" style="color:black; font-weight:bold;">Horas Netas:</span><span class="custom-value" style="color:#3b5998;">{formatear_minutos_a_string(minutos_dia)}</span></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
                     else:
                         st.caption("Sin registros para esta fecha específica.")
                     
@@ -337,7 +407,7 @@ try:
                     string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
                     st.metric(label="Total neto acumulado en el mes", value=string_acumulado_real)
 
-                    # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
+                    # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets estructurada en una Tarjeta Estética
                     if "Meta" in df.columns:
                         try:
                             meta_horas = float(fila_usuario.iloc[0]["Meta"])
@@ -349,8 +419,22 @@ try:
                         if meta_horas > 0:
                             total_horas_mes = total_minutos_mes / 60.0
                             porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
+                            
                             st.write("")
-                            st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
+                            # Envoltorio estético tipo Tarjeta Verde Esmeralda (SIS) para el Resumen de Metas
+                            st.markdown(f"""
+                                <div class="custom-card">
+                                    <div class="custom-card-header teal">
+                                        <span>Meta de Horas Mensual</span>
+                                        <span class="custom-badge active">{porcentaje_avance*100:.1f}%</span>
+                                    </div>
+                                    <div class="custom-card-body">
+                                        <div class="custom-row"><span class="custom-label">Meta establecida:</span><span class="custom-value">{meta_horas:.0f} h</span></div>
+                                        <div class="custom-row"><span class="custom-label">Horas ejecutadas:</span><span class="custom-value">{total_horas_mes:.1f} h</span></div>
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
                             st.progress(porcentaje_avance)
                             
                             minutos_restantes = int((meta_horas * 60) - total_minutos_mes)

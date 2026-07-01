@@ -131,7 +131,6 @@ try:
 
             /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE INTACTO --- */
             @media (min-width: 769px) {
-                /* Forzar la fila contenedora para que actue como el diseño dividido */
                 div[data-testid="stHorizontalBlock"] {
                     background-color: #ffffff !important;
                     border-radius: 24px !important;
@@ -144,7 +143,6 @@ try:
                     padding: 0 !important;
                     gap: 0 !important;
                 }
-                /* Panel Izquierdo Decorativo Azul con Ondas */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
                     display: flex !important;
@@ -154,7 +152,6 @@ try:
                     padding: 40px !important;
                     position: relative !important;
                 }
-                /* Añadir el efecto de curvas/ondas sutiles en el panel azul */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::after {
                     content: "";
                     position: absolute;
@@ -165,7 +162,6 @@ try:
                                 radial-gradient(circle at 100% 0%, rgba(255,255,255,0.1) 0%, transparent 50%);
                     pointer-events: none;
                 }
-                /* Panel Derecho Blanco (Formulario de credenciales) */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
                     background-color: #ffffff !important;
                     padding: 45px 35px !important;
@@ -173,14 +169,12 @@ try:
                     flex-direction: column !important;
                     justify-content: center !important;
                 }
-                /* Eliminar el contenedor interno redundante en PC */
                 div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
                     background: transparent !important;
                     box-shadow: none !important;
                     padding: 0 !important;
                     border: none !important;
                 }
-                /* Insertar dinámicamente el isotipo de la marca en el lado azul de PC */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
                     content: "B";
                     font-family: 'sans-serif', Arial;
@@ -197,33 +191,49 @@ try:
                 }
             }
 
-            /* --- CONFIGURACIÓN OPTIMIZADA PARA CELULAR (MÓVIL) --- */
+            /* --- CONFIGURACIÓN TOTALMENTE PANTALLA COMPLETA PARA CELULAR --- */
             @media (max-width: 768px) {
-                /* Contenedor principal sin bordes raros externos en celular */
+                /* Forzamos que el bloque principal rompa los márgenes de Streamlit y ocupe el 100% real */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
                     background-color: #ffffff !important;
-                    border-radius: 28px !important;
-                    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.05) !important;
-                    overflow: hidden !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    min-height: 100vh !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     border: none !important;
+                    border-radius: 0px !important;
+                    box-shadow: none !important;
+                    z-index: 9999 !important;
                 }
-                /* La franja azul de arriba reducida drásticamente (sin textos que estiren) */
+                
+                /* Forzamos el contenedor general de la app para evitar scrolls raros o fondos grises */
+                .stMainBlockContainer {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    max-width: 100vw !important;
+                }
+
+                /* Franja azul compacta superior en el móvil */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
                     padding: 25px 15px !important;
-                    border-radius: 0 !important;
-                    box-shadow: none !important;
+                    border-radius: 0 0 30px 30px !important; /* Ligera curva abajo de la barra azul */
+                    text-align: center !important;
+                    box-shadow: 0px 4px 12px rgba(0,0,0,0.1) !important;
                 }
-                /* Ocultar los textos redundantes del panel azul solo en celular para dar espacio */
+
+                /* Ocultamos los textos que ensanchan el panel azul arriba */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) h1,
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) p {
                     display: none !important;
                 }
-                /* Forzar que un pseudo-elemento actúe como isotipo 'B' discreto arriba en celular */
+
+                /* Isotipo 'B' discreto dentro de la franja azul móvil */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
                     content: "B";
                     font-family: sans-serif;
@@ -235,7 +245,15 @@ try:
                     padding: 2px 12px;
                     display: inline-block;
                 }
-                /* Quitar el recuadro blanco interno redundante de Streamlit para que no se vea doble borde */
+
+                /* Sección del Formulario tomando todo el ancho y con padding ideal */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+                    padding: 40px 25px !important;
+                    background-color: #ffffff !important;
+                    flex: 1 !important;
+                }
+
+                /* Limpieza de contenedores internos innecesarios de Streamlit */
                 div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
                     background-color: transparent !important;
                     box-shadow: none !important;
@@ -243,15 +261,9 @@ try:
                     border: none !important;
                     margin-top: 0 !important;
                 }
-                /* Panel del formulario propiamente dicho con padding cómodo en celular */
-                div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 30px 20px 40px 20px !important;
-                    background-color: #ffffff !important;
-                }
             }
 
             /* --- ELEMENTOS COMUNES DE CAMPOS Y ENTRADAS (AMBOS MODELOS) --- */
-            /* Inputs estilizados con bordes redondeados y tono suave */
             div[data-testid="stTextInput"] input {
                 border-radius: 14px !important;
                 border: 1px solid #c2c9d1 !important;
@@ -264,7 +276,6 @@ try:
                 border-color: #3b5998 !important;
                 box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.15) !important;
             }
-            /* Botón de envío imponente con esquinas redondeadas y relleno completo */
             div[data-testid="stButton"] button {
                 background-color: #3b5998 !important;
                 color: white !important;

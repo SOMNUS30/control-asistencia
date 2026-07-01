@@ -9,7 +9,7 @@ from streamlit_geolocation import streamlit_geolocation
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0639
 LON_OBJETIVO = -75.7292
-RADIO_MAX_KM = 2.0
+RADIO_MAX_KM = 1.0
 
 # Formula de Haversine para calcular distancia entre dos coordenadas (Lat/Lon)
 def calcular_distancia(lat1, lon1, lat2, lon2):

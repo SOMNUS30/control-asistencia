@@ -116,7 +116,7 @@ try:
         st.session_state.usuario_actual = ""
 
     if not st.session_state.autenticado:
-        # Inyección de estilos CSS avanzados y adaptables (Media Queries) para PC y celular según el nuevo modelo
+        # Inyección de estilos CSS avanzados y adaptables (Media Queries) para PC y celular según el modelo
         st.markdown("""
             <style>
             /* Fondo base claro */
@@ -191,20 +191,30 @@ try:
                 }
             }
 
-            /* --- NUEVA CONFIGURACIÓN PREMIUM PARA CELULAR (MODELO CÍRCULOS ORGÁNICOS) --- */
+            /* --- CONFIGURACIÓN PARA CELULAR - TOTALMENTE BLANCO Y PANTALLA COMPLETA --- */
             @media (max-width: 768px) {
-                /* Liberamos los márgenes nativos de la aplicación móvil */
-                .stMainBlockContainer, .block-container {
+                /* Forzamos que la app en móvil ignore los márgenes nativos y use fondo blanco */
+                .stMainBlockContainer, .block-container, .stApp {
                     padding: 0px !important;
                     margin: 0px !important;
                     max-width: 100% !important;
                     width: 100% !important;
+                    background-color: #ffffff !important;
+                }
+                
+                /* Quitamos márgenes de contenedores intermedios */
+                div[data-testid="stElementContainer"], div[data-testid="stVerticalBlock"] {
+                    padding: 0px !important;
+                    margin: 0px !important;
+                    width: 100% !important;
                 }
 
-                /* Forzamos a la caja principal a ocupar el 100% de la pantalla e inyectamos los círculos de colores de fondo */
+                /* Caja principal al 100% de pantalla con fondo completamente blanco uniforme */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
+                    background-color: #ffffff !important;
+                    background-image: none !important; /* Eliminamos los círculos de fondo */
                     width: 100% !important;
                     min-height: 100vh !important;
                     margin: 0px !important;
@@ -213,33 +223,24 @@ try:
                     border: none !important;
                     border-radius: 0px !important;
                     box-shadow: none !important;
-                    
-                    /* Generación de los círculos azul oscuro arriba y naranja/azul abajo (idéntico a tu imagen) */
-                    background-color: #ffffff !important;
-                    background-image: 
-                        radial-gradient(circle at 10% -5%, #2a3b90 120px, transparent 125px),
-                        radial-gradient(circle at 90% 15%, #4fa8fb 90px, transparent 95px),
-                        radial-gradient(circle at -5% 90%, #f15a24 110px, transparent 115px),
-                        radial-gradient(circle at 75% 102%, #005691 130px, transparent 135px) !important;
-                    background-repeat: no-repeat !important;
                 }
 
-                /* OCULTAMOS POR COMPLETO el panel azul primitivo en móviles */
+                /* Ocultamos por completo el bloque decorativo azul nativo en móviles */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     display: none !important;
                 }
 
-                /* Centramos y damos padding perfecto al contenedor del Login en celulares */
+                /* Centramos el formulario limpiamente sobre el fondo blanco */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 140px 30px 40px 24px !important; /* Margen superior amplio para librar los círculos de arriba */
-                    background-color: transparent !important; /* Dejar ver los círculos de fondo */
+                    padding: 80px 24px 40px 24px !important; /* Espaciado cómodo superior */
+                    background-color: #ffffff !important;
                     width: 100% !important;
                     display: flex !important;
                     flex-direction: column !important;
                     justify-content: center !important;
                 }
 
-                /* Reseteamos contenedores intermedios grises de Streamlit */
+                /* Eliminamos recuadros grises residuales */
                 div[data-testid="stVerticalBlock"] > div {
                     background-color: transparent !important;
                     box-shadow: none !important;
@@ -247,13 +248,13 @@ try:
                     border: none !important;
                 }
                 
-                /* Título grande estilizado tipo tu nueva imagen */
+                /* Título grande del Login en el celular */
                 div[data-testid="stHorizontalBlock"] h2 {
-                    font-size: 36px !important;
+                    font-size: 32px !important;
                     font-weight: 700 !important;
-                    color: #1e1e1e !important;
+                    color: #2f3542 !important;
                     text-align: center !important;
-                    margin-bottom: 40px !important;
+                    margin-bottom: 30px !important;
                 }
             }
 
@@ -300,7 +301,7 @@ try:
 
         with col_centro:
             with st.container():
-                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Bienvenido</h2>", unsafe_allow_html=True)
+                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Login</h2>", unsafe_allow_html=True)
                 st.markdown("<p style='text-align: center; color: #747d8c; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
                 
                 codigo_ingresado = st.text_input("Código de Asesor", type="password")

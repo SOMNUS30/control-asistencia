@@ -191,75 +191,67 @@ try:
                 }
             }
 
-            /* --- CONFIGURACIÓN TOTALMENTE PANTALLA COMPLETA PARA CELULAR --- */
+            /* --- CONFIGURACIÓN CORREGIDA Y LIMPIA PARA CELULAR --- */
             @media (max-width: 768px) {
-                /* Forzamos que el bloque principal rompa los márgenes de Streamlit y ocupe el 100% real */
+                /* Quitamos los márgenes globales que Streamlit le pone a la página en celulares */
+                .stMainBlockContainer {
+                    padding: 0px !important;
+                    margin: 0px !important;
+                    max-width: 100% !important;
+                }
+                
+                /* El bloque contenedor ocupará todo el ancho disponible */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
                     background-color: #ffffff !important;
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100vw !important;
-                    min-height: 100vh !important;
+                    width: 100% !important;
                     margin: 0 !important;
                     padding: 0 !important;
-                    border: none !important;
-                    border-radius: 0px !important;
-                    box-shadow: none !important;
-                    z-index: 9999 !important;
-                }
-                
-                /* Forzamos el contenedor general de la app para evitar scrolls raros o fondos grises */
-                .stMainBlockContainer {
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    max-width: 100vw !important;
+                    gap: 0 !important;
                 }
 
-                /* Franja azul compacta superior en el móvil */
+                /* Cabecera azul superior en el móvil: compacta y sin márgenes */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
-                    padding: 25px 15px !important;
-                    border-radius: 0 0 30px 30px !important; /* Ligera curva abajo de la barra azul */
+                    padding: 20px 10px !important;
+                    margin: 0 !important;
                     text-align: center !important;
-                    box-shadow: 0px 4px 12px rgba(0,0,0,0.1) !important;
+                    border-radius: 0px !important;
                 }
 
-                /* Ocultamos los textos que ensanchan el panel azul arriba */
+                /* Ocultamos los textos largos del panel azul en el celular */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) h1,
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) p {
                     display: none !important;
                 }
 
-                /* Isotipo 'B' discreto dentro de la franja azul móvil */
+                /* Pequeño logo 'B' en la barra superior */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
                     content: "B";
                     font-family: sans-serif;
-                    font-size: 24px;
+                    font-size: 22px;
                     font-weight: bold;
                     color: white;
-                    border: 3px solid white;
-                    border-radius: 8px;
-                    padding: 2px 12px;
+                    border: 2px solid white;
+                    border-radius: 6px;
+                    padding: 1px 10px;
                     display: inline-block;
                 }
 
-                /* Sección del Formulario tomando todo el ancho y con padding ideal */
+                /* El formulario se expande al 100% de la pantalla del celular sin cajas grises */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 40px 25px !important;
+                    padding: 30px 20px !important;
+                    margin: 0 !important;
                     background-color: #ffffff !important;
-                    flex: 1 !important;
                 }
 
-                /* Limpieza de contenedores internos innecesarios de Streamlit */
-                div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
+                /* Limpieza total de fondos grises o dobles bordes que mete Streamlit por defecto */
+                div[data-testid="stVerticalBlock"] > div {
                     background-color: transparent !important;
                     box-shadow: none !important;
                     padding: 0 !important;
                     border: none !important;
-                    margin-top: 0 !important;
                 }
             }
 
@@ -297,7 +289,7 @@ try:
             </style>
         """, unsafe_allow_html=True)
 
-        # Contenedor estructural nativo reorganizado mediante las reglas CSS superiores
+        # Contenedor estructural nativo
         col_izq, col_centro = st.columns([1, 1.2])
         
         with col_izq:

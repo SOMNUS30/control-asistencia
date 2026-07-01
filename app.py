@@ -116,52 +116,161 @@ try:
         st.session_state.usuario_actual = ""
 
     if not st.session_state.autenticado:
-        # Inyección de estilos CSS avanzados para transformar la estética del Login tipo App Móvil
+        # Inyección de estilos CSS avanzados y adaptables (Media Queries) para PC y celular según el modelo
         st.markdown("""
             <style>
-            /* Fondo de la aplicación sutil */
+            /* Fondo base claro */
             .stApp {
-                background: linear-gradient(180deg, #f3f5f9 0%, #ffffff 100%) !important;
+                background-color: #f3f5f9 !important;
             }
-            /* Estilización de la Tarjeta del Login (Bordes y Sombras de la imagen modelo) */
-            div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
-                background-color: #ffffff !important;
-                border-radius: 20px !important;
-                box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.05) !important;
-                padding: 30px 24px !important;
-                border: 1px solid #e1e4e8 !important;
+            
+            /* Ocultar elementos estructurales nativos superiores de Streamlit para el login limpio */
+            header, div[data-testid="stHeader"] {
+                background: transparent !important;
             }
-            /* Bordes redondeados y estilo moderno para los Inputs */
+
+            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) --- */
+            @media (min-width: 769px) {
+                /* Forzar la fila contenedora para que actue como el diseño dividido */
+                div[data-testid="stHorizontalBlock"] {
+                    background-color: #ffffff !important;
+                    border-radius: 24px !important;
+                    box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.08) !important;
+                    overflow: hidden !important;
+                    display: flex !important;
+                    align-items: stretch !important;
+                    min-height: 480px !important;
+                    border: none !important;
+                    padding: 0 !important;
+                    gap: 0 !important;
+                }
+                /* Panel Izquierdo Decorativo Azul con Ondas */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+                    background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    padding: 40px !important;
+                    position: relative !important;
+                }
+                /* Añadir el efecto de curvas/ondas sutiles en el panel azul */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1)::after {
+                    content: "";
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    top: 0; left: 0;
+                    background: radial-gradient(circle at 0% 100%, rgba(255,255,255,0.15) 0%, transparent 60%),
+                                radial-gradient(circle at 100% 0%, rgba(255,255,255,0.1) 0%, transparent 50%);
+                    pointer-events: none;
+                }
+                /* Panel Derecho Blanco (Formulario de credenciales) */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+                    background-color: #ffffff !important;
+                    padding: 45px 35px !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: center !important;
+                }
+                /* Eliminar el contenedor interno redundante en PC */
+                div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    border: none !important;
+                }
+                /* Insertar dinámicamente el isotipo de la marca en el lado azul de PC */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
+                    content: "B";
+                    font-family: 'sans-serif', Arial;
+                    font-size: 64px;
+                    font-weight: 900;
+                    color: white;
+                    border: 6px solid white;
+                    border-radius: 18px;
+                    padding: 5px 25px;
+                    margin-bottom: 15px;
+                    display: block;
+                    letter-spacing: -2px;
+                    box-shadow: 0px 4px 10px rgba(0,0,0,0.15);
+                }
+            }
+
+            /* --- CONFIGURACIÓN PARA CELULAR (MÓVIL) --- */
+            @media (max-width: 768px) {
+                /* Caja vertical fluida */
+                div[data-testid="stHorizontalBlock"] {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    gap: 0 !important;
+                    padding: 0 !important;
+                }
+                /* El bloque 1 se convierte en la cabecera curva superior azul del celular */
+                div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+                    background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
+                    padding: 50px 20px !important;
+                    text-align: center !important;
+                    border-radius: 0 0 40px 40px !important;
+                    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1) !important;
+                }
+                /* Estilización de la tarjeta del login inferior que aloja los inputs en el celular */
+                div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
+                    background-color: #ffffff !important;
+                    border-radius: 24px !important;
+                    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.04) !important;
+                    padding: 35px 24px !important;
+                    border: 1px solid #e1e4e8 !important;
+                    margin-top: 25px !important;
+                }
+            }
+
+            /* --- ELEMENTOS COMUNES DE CAMPOS Y ENTRADAS (AMBOS MODELOS) --- */
+            /* Inputs estilizados con bordes redondeados y tono suave */
             div[data-testid="stTextInput"] input {
-                border-radius: 12px !important;
-                border: 1px solid #9c8df6 !important;
+                border-radius: 14px !important;
+                border: 1px solid #c2c9d1 !important;
                 padding: 12px !important;
                 font-size: 16px !important;
+                background-color: #f9fbfd !important;
+                transition: border-color 0.2s, box-shadow 0.2s !important;
             }
-            /* Botón Consultar / Iniciar Sesión con color sólido e imponente */
+            div[data-testid="stTextInput"] input:focus {
+                border-color: #3b5998 !important;
+                box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.15) !important;
+            }
+            /* Botón de envío imponente con esquinas redondeadas y relleno completo */
             div[data-testid="stButton"] button {
                 background-color: #3b5998 !important;
                 color: white !important;
-                border-radius: 12px !important;
-                padding: 12px 24px !important;
+                border-radius: 14px !important;
+                padding: 14px 24px !important;
                 border: none !important;
                 font-size: 16px !important;
                 font-weight: bold !important;
-                transition: background-color 0.2s !important;
+                letter-spacing: 0.5px !important;
+                box-shadow: 0px 4px 12px rgba(59, 89, 152, 0.25) !important;
+                transition: background-color 0.2s, transform 0.1s !important;
             }
             div[data-testid="stButton"] button:hover {
                 background-color: #2d4373 !important;
             }
+            div[data-testid="stButton"] button:active {
+                transform: scale(0.98) !important;
+            }
             </style>
         """, unsafe_allow_html=True)
 
-        st.write("")
-        st.write("")
+        # Contenedor estructural nativo reorganizado mediante las reglas CSS superiores
+        col_izq, col_centro = st.columns([1, 1.2])
         
-        col_izq, col_centro, col_der = st.columns([1, 1.6, 1])
-        
+        with col_izq:
+            # En PC este bloque aloja el texto decorativo blanco. En celular opera como la cabecera superior.
+            st.markdown("<h1 style='text-align: center; color: white; font-size: 28px; font-weight: 800; margin: 0;'>Welcome</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 5px;'>Login to your account to continue</p>", unsafe_allow_html=True)
+
         with col_centro:
-            with st.container(border=True):
+            with st.container():
                 st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Consulta de Trabajador</h2>", unsafe_allow_html=True)
                 st.markdown("<p style='text-align: center; color: #747d8c; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
                 

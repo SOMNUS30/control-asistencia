@@ -115,7 +115,7 @@ try:
         st.session_state.autenticado = False
         st.session_state.usuario_actual = ""
 
-    if not st.session_state.autenticado:
+    iif not st.session_state.autenticado:
         # Inyección de estilos CSS avanzados y adaptables (Media Queries) para PC y celular según el modelo
         st.markdown("""
             <style>
@@ -129,7 +129,7 @@ try:
                 background: transparent !important;
             }
 
-            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE PERFECTO E INTACTO --- */
+            /* --- CONFIGURACIÓN PARA COMPUTADORA (PC) - SE MANTIENE INTACTO --- */
             @media (min-width: 769px) {
                 div[data-testid="stHorizontalBlock"] {
                     background-color: #ffffff !important;
@@ -191,9 +191,9 @@ try:
                 }
             }
 
-            /* --- CONFIGURACIÓN DE LIBERACIÓN TOTAL PARA CELULAR (100% PANTALLA COMPLETA) --- */
+            /* --- CONFIGURACIÓN PARA CELULAR - RECORTE DE BARRA AZUL A LA MITAD --- */
             @media (max-width: 768px) {
-                /* 1. Forzamos al contenedor principal de la página a liberar todo el ancho y alto en móviles */
+                /* Forzamos al contenedor principal de la página a liberar todo el ancho en móviles */
                 .stMainBlockContainer, .block-container {
                     padding: 0px !important;
                     margin: 0px !important;
@@ -201,20 +201,20 @@ try:
                     width: 100% !important;
                 }
                 
-                /* 2. Reseteamos los contenedores internos nativos intermedios de Streamlit para que no asfixien el diseño */
+                /* Reseteamos los contenedores internos nativos intermedios de Streamlit */
                 div[data-testid="stElementContainer"], div[data-testid="stVerticalBlock"] {
                     padding: 0px !important;
                     margin: 0px !important;
                     width: 100% !important;
                 }
 
-                /* 3. Forzamos a las columnas a unirse y ocupar el 100% real sin simular tarjetas flotantes grises */
+                /* Forzamos a las columnas a ocupar el 100% real sin simular tarjetas flotantes grises */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
                     background-color: #ffffff !important;
                     width: 100% !important;
-                    min-height: 100vh !important; /* Llena toda la pantalla vertical del móvil */
+                    min-height: 100vh !important;
                     margin: 0px !important;
                     padding: 0px !important;
                     gap: 0px !important;
@@ -223,13 +223,17 @@ try:
                     box-shadow: none !important;
                 }
 
-                /* Cabecera azul superior en móvil: delgada, estirada completamente de extremo a extremo */
+                /* Cabecera azul REDUCIDA A LA MITAD con max-height estricto */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     background: linear-gradient(135deg, #4fa8fb 0%, #3b5998 100%) !important;
-                    padding: 25px 0px !important;
+                    padding: 15px 0px !important; /* Reducimos padding drásticamente */
                     margin: 0px !important;
                     width: 100% !important;
-                    text-align: center !important;
+                    max-height: 80px !important; /* Forzamos altura máxima del bloque azul */
+                    min-height: 80px !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
                     border-radius: 0px !important;
                     box-shadow: 0px 3px 10px rgba(0,0,0,0.1) !important;
                 }
@@ -244,18 +248,18 @@ try:
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1)::before {
                     content: "B";
                     font-family: sans-serif;
-                    font-size: 22px;
+                    font-size: 20px;
                     font-weight: bold;
                     color: white;
                     border: 2px solid white;
                     border-radius: 6px;
-                    padding: 1px 10px;
+                    padding: 0px 8px;
                     display: inline-block;
                 }
 
-                /* Cuerpo del Formulario: Ocupa todo el ancho inferior restante sin dobles bordes grises */
+                /* Cuerpo del Formulario: Toma el verdadero protagonismo */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 35px 24px !important;
+                    padding: 40px 24px !important;
                     margin: 0px !important;
                     width: 100% !important;
                     background-color: #ffffff !important;

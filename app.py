@@ -1,830 +1,538 @@
 import streamlit as st
-
 import gspread
-
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
-
 import pandas as pd
-
 from datetime import datetime, timedelta
-
 import math
-
 from streamlit_geolocation import streamlit_geolocation
 
-
-
 # Coordenadas del punto central requerido (Ica, Perú)
-
 LAT_OBJETIVO = -14.0780018
-
 LON_OBJETIVO = -75.7399245
-
 RADIO_MAX_KM = 1.0
 
-
-
 # Formula de Haversine para calcular distancia entre dos coordenadas (Lat/Lon)
-
 def calcular_distancia(lat1, lon1, lat2, lon2):
-
     rad = math.pi / 180
-
     dlat = (lat2 - lat1) * rad
-
     dlon = (lon2 - lon1) * rad
-
     a = math.sin(dlat/2)**2 + math.cos(lat1*rad) * math.cos(lat2*rad) * math.sin(dlon/2)**2
-
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-
     return 6371.0 * c  # Retorna la distancia en kilómetros
 
-
-
 # Función para obtener la hora exacta de Perú (UTC-5) sin importar el servidor
-
 def obtener_hora_peru():
-
     return datetime.utcnow() - timedelta(hours=5)
 
-
-
 # Función auxiliar para calcular la diferencia de minutos netos restando el refrigerio si existe
-
 def calcular_minutos_netos_raw(entrada_str, ref_inicio_str, ref_fin_str, salida_str):
-
     try:
-
         if entrada_str in ["Falta", "Permiso", "-", "", "nan", "None"] or salida_str in ["Falta", "Permiso", "-", "", "nan", "None"]:
-
             return 0
-
             
-
         t_entrada = datetime.strptime(entrada_str, "%I:%M %p")
-
         t_salida = datetime.strptime(salida_str, "%I:%M %p")
-
         if t_salida < t_entrada:
-
             t_salida += timedelta(days=1)
-
             
-
         total_jornada_min = int((t_salida - t_entrada).total_seconds() / 60.0)
-
         
-
         tiempo_refrigerio_min = 0
-
         if ref_inicio_str not in ["Falta", "Permiso", "-", "", "nan", "None"] and ref_fin_str not in ["Falta", "Permiso", "-", "", "nan", "None"]:
-
             t_ref_in = datetime.strptime(ref_inicio_str, "%I:%M %p")
-
             t_ref_fi = datetime.strptime(ref_fin_str, "%I:%M %p")
-
             if t_ref_fi < t_ref_in:
-
                 t_ref_fi += timedelta(days=1)
-
             tiempo_refrigerio_min = int((t_ref_fi - t_ref_in).total_seconds() / 60.0)
-
             
-
         return max(0, total_jornada_min - tiempo_refrigerio_min)
-
     except Exception:
-
         return 0
 
-
-
 # Convierte minutos totales a cadena estructurada h/min
-
 def formatear_minutos_a_string(minutos_totales):
-
     if minutos_totales <= 0:
-
         return "0 h 0 min"
-
     horas = minutos_totales // 60
-
-    minutos = minutos_totales % 60
-
+    minutos = minutes = minutos_totales % 60
     return f"{horas} h {minutos} min"
 
-
-
 # Configuracion de pagina con diseno responsivo y centrado sin emoticonos
-
 st.set_page_config(page_title="Control de Asistencia", page_icon=None, layout="centered")
 
-
-
 # Diccionario para convertir el mes del año a mayúsculas en español
-
 MESES_ESPANOL = {
-
     1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
-
     5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
-
     9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
-
 }
 
-
-
 try:
-
     # Conexión utilizando los Secrets de Streamlit Cloud para producción (Convertido a diccionario explícito)
-
     gc = gspread.service_account_from_dict(dict(st.secrets["gspread"]))
-
     
-
     # Conexión directa con tu ID de Google Sheets
-
     hoja_calculo = gc.open_by_key('1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU')
-
     
-
     # Detectar el mes actual automáticamente basándose en la hora de Perú
-
     hora_peru_actual = obtener_hora_peru()
-
     mes_actual_num = hora_peru_actual.month
-
     nombre_pestana = MESES_ESPANOL[mes_actual_num]
-
     
-
     wks = hoja_calculo.worksheet(nombre_pestana)
-
     df = get_as_dataframe(wks).dropna(how="all").dropna(axis=1, how="all")
-
     
-
     # =========================================================
-
     # AUTOMATIZACIÓN DE FALTAS DIARIAS CON REFRIGERIO (Hora de Perú)
-
     # =========================================================
-
     fecha_hoy = hora_peru_actual.strftime("%d/%m/%Y")
-
     col_entrada = f"{fecha_hoy} (Entrada)"
-
     col_ref_salida = f"{fecha_hoy} (Inicio Ref)"
-
     col_ref_retorno = f"{fecha_hoy} (Fin Ref)"
-
     col_salida = f"{fecha_hoy} (Salida)"
-
     
-
     cambio_estructura = False
-
     
-
     if col_entrada not in df.columns:
-
         df[col_entrada] = "Falta"
-
         cambio_estructura = True
-
     if col_ref_salida not in df.columns:
-
         df[col_ref_salida] = "Falta"
-
         cambio_estructura = True
-
     if col_ref_retorno not in df.columns:
-
         df[col_ref_retorno] = "Falta"
-
         cambio_estructura = True
-
     if col_salida not in df.columns:
-
         df[col_salida] = "Falta"
-
         cambio_estructura = True
-
         
-
     if cambio_estructura:
-
         wks.clear()
-
         set_with_dataframe(wks, df)
-
     # =========================================================
-
-
 
     if "autenticado" not in st.session_state:
-
         st.session_state.autenticado = False
-
         st.session_state.usuario_actual = ""
 
-
-
     if not st.session_state.autenticado:
-
-        st.write("")
-
-        st.write("")
-
-        
-
-        col_izq, col_centro, col_der = st.columns([1, 1.6, 1])
-
-        
-
-        with col_centro:
-
-            with st.container(border=True):
-
-                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px;'>Control de Asistencia</h2>", unsafe_allow_html=True)
-
-                st.markdown("<p style='text-align: center; color: gray; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
-
-                
-
-                codigo_ingresado = st.text_input("Código de Asesor", type="password")
-
-                
-
-                st.write("") 
-
-                
-
-                if st.button("Iniciar Sesión", use_container_width=True):
-
-                    df["Codigo"] = df["Codigo"].astype(str).str.split('.').str[0].str.strip()
-
-                    codigo_ingresado = str(codigo_ingresado).strip()
-
-                    
-
-                    usuario_encontrado = df[df["Codigo"] == codigo_ingresado]
-
-                    
-
-                    if not usuario_encontrado.empty:
-
-                        st.session_state.autenticado = True
-
-                        st.session_state.usuario_actual = usuario_encontrado.iloc[0]["Usuario"]
-
-                        st.rerun()
-
-                    else:
-
-                        st.error("Código incorrecto. Intente de nuevo.")
-
-    else:
-
-        st.markdown(f"<h3 style='margin-bottom:0px;'>Control de Asistencia</h3>", unsafe_allow_html=True)
-
-        
-
-        es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
-
-        
-
-        if es_admin:
-
-            st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
-
-            tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
-
-        else:
-
-            st.caption(f"Usuario: {st.session_state.usuario_actual}")
-
-            tab_marcado, = st.tabs(["Mi Marcado"])
-
-
-
-        fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
-
-        
-
-        # Lecturas de celdas del usuario actual
-
-        marca_entrada = str(fila_usuario.iloc[0][col_entrada]).strip() if not pd.isna(fila_usuario.iloc[0][col_entrada]) else ""
-
-        marca_ref_salida = str(fila_usuario.iloc[0][col_ref_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_salida]) else ""
-
-        marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
-
-        marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
-
-
-
-        # Inyección única de estilos para forzar las letras de todos los botones en negrita
-
+        # Inyección de estilos CSS avanzados para transformar la estética del Login tipo App Móvil
         st.markdown("""
-
             <style>
-
-            div[data-testid="stButton"] button div p {
-
-                font-weight: bold !important;
-
+            /* Fondo de la aplicación sutil */
+            .stApp {
+                background: linear-gradient(180deg, #f3f5f9 0%, #ffffff 100%) !important;
             }
-
+            /* Estilización de la Tarjeta del Login (Bordes y Sombras de la imagen modelo) */
+            div[data-testid="stVerticalBlock"] > div:has(div[class*="stTextInput"]) {
+                background-color: #ffffff !important;
+                border-radius: 20px !important;
+                box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.05) !important;
+                padding: 30px 24px !important;
+                border: 1px solid #e1e4e8 !important;
+            }
+            /* Bordes redondeados y estilo moderno para los Inputs */
+            div[data-testid="stTextInput"] input {
+                border-radius: 12px !important;
+                border: 1px solid #9c8df6 !important;
+                padding: 12px !important;
+                font-size: 16px !important;
+            }
+            /* Botón Consultar / Iniciar Sesión con color sólido e imponente */
+            div[data-testid="stButton"] button {
+                background-color: #3b5998 !important;
+                color: white !important;
+                border-radius: 12px !important;
+                padding: 12px 24px !important;
+                border: none !important;
+                font-size: 16px !important;
+                font-weight: bold !important;
+                transition: background-color 0.2s !important;
+            }
+            div[data-testid="stButton"] button:hover {
+                background-color: #2d4373 !important;
+            }
             </style>
-
         """, unsafe_allow_html=True)
 
-
-
-        # =========================================================
-
-        # PESTAÑA 1: PANEL DE MARCADO DIARIO (ADMIN Y ASESORES)
-
-        # =========================================================
-
-        with tab_marcado:
-
-            st.write("")
-
-            
-
-            st.markdown("##### Verificación de Ubicación Requerida")
-
-            st.markdown("<small style='color:gray;'>Haz clic en el botón de abajo para activar tu GPS e iniciar la verificación de rango.</small>", unsafe_allow_html=True)
-
-            loc = streamlit_geolocation()
-
-            
-
-            ubicacion_valida = False
-
-            
-
-            if loc and loc['latitude'] is not None:
-
-                lat_user = loc['latitude']
-
-                lon_user = loc['longitude']
-
-                distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
-
+        st.write("")
+        st.write("")
+        
+        col_izq, col_centro, col_der = st.columns([1, 1.6, 1])
+        
+        with col_centro:
+            with st.container(border=True):
+                st.markdown("<h2 style='text-align: center; margin-bottom: 5px; font-size: 24px; color: #2f3542; font-weight: bold;'>Consulta de Trabajador</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align: center; color: #747d8c; font-size: 13px; margin-bottom: 25px;'>Introduce tus credenciales de acceso.</p>", unsafe_allow_html=True)
                 
-
-                if distancia_km <= RADIO_MAX_KM:
-
-                    ubicacion_valida = True
-
-                    st.success(f"Ubicación confirmada. Te encuentras dentro del rango permitido ({distancia_km:.2f} km de la base).")
-
-                else:
-
-                    st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
-
-            else:
-
-                st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
-
-            
-
-            st.write("---")
-
-            
-
-            tiempo_peru_actual = obtener_hora_peru()
-
-            hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
-
-            
-
-            # CASO 1: NO TIENE ENTRADA REGISTRADA
-
-            if marca_entrada in ["Falta", "-", "", "nan", "None"]:
-
-                st.info("Estado: Sin registro de ingreso hoy.")
-
-                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
-
-                st.write("")
-
+                codigo_ingresado = st.text_input("DNI / Código de Asesor", type="password")
                 
-
-                if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
-
-                    ahora_click = obtener_hora_peru()
-
-                    hora_formateada = ahora_click.strftime("%I:%M %p")
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
-
-                    wks.clear()
-
-                    set_with_dataframe(wks, df)
-
-                    st.success(f"Entrada registrada: {hora_formateada}")
-
-                    st.session_state.autenticado = False
-
-                    st.session_state.usuario_actual = ""
-
-                    st.rerun()
-
+                st.write("") 
                 
-
-                if st.button("Registrar Permiso", use_container_width=True):
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = "Permiso"
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = "Permiso"
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = "Permiso"
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = "Permiso"
-
-                    wks.clear()
-
-                    set_with_dataframe(wks, df)
-
-                    st.success("Permiso registrado.")
-
-                    st.session_state.autenticado = False
-
-                    st.session_state.usuario_actual = ""
-
-                    st.rerun()
-
+                if st.button("CONSULTAR TODO", use_container_width=True):
+                    df["Codigo"] = df["Codigo"].astype(str).str.split('.').str[0].str.strip()
+                    codigo_ingresado = str(codigo_ingresado).strip()
                     
-
-            elif marca_entrada == "Permiso":
-
-                st.info("Tu estado de hoy es: Permiso.")
-
-                
-
-            # CASO 2: JORNADA YA COMPLETADA TOTALMENTE
-
-            elif marca_salida not in ["Falta", "-", "", "nan", "None"]:
-
-                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Ref: {marca_ref_salida} - {marca_ref_retorno} | Salida: {marca_salida}")
-
-                
-
-            # CASO 3: TIENE ENTRADA PERO NO TIENE SALIDA FINAL (Botones flexibles disponibles)
-
-            else:
-
-                st.warning(f"Ingreso registrado a las: {marca_entrada}")
-
-                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
-
-                st.write("")
-
-                
-
-                if marca_ref_salida in ["Falta", "-", "", "nan", "None"]:
-
-                    if st.button("Iniciar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
-
-                        ahora_click = obtener_hora_peru()
-
-                        hora_formateada = ahora_click.strftime("%I:%M %p")
-
-                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
-
-                        wks.clear()
-
-                        set_with_dataframe(wks, df)
-
-                        st.success(f"Salida a refrigerio registrada: {hora_formateada}")
-
-                        st.session_state.autenticado = False
-
-                        st.session_state.usuario_actual = ""
-
+                    usuario_encontrado = df[df["Codigo"] == codigo_ingresado]
+                    
+                    if not usuario_encontrado.empty:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario_actual = usuario_encontrado.iloc[0]["Usuario"]
                         st.rerun()
+                    else:
+                        st.error("Código incorrecto. Intente de nuevo.")
+    else:
+        st.markdown(f"<h3 style='margin-bottom:0px;'>Control de Asistencia</h3>", unsafe_allow_html=True)
+        
+        es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
+        
+        if es_admin:
+            st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
+            tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
+        else:
+            st.caption(f"Usuario: {st.session_state.usuario_actual}")
+            tab_marcado, = st.tabs(["Mi Marcado"])
 
-                elif marca_ref_retorno in ["Falta", "-", "", "nan", "None"]:
+        fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
+        
+        # Lecturas de celdas del usuario actual
+        marca_entrada = str(fila_usuario.iloc[0][col_entrada]).strip() if not pd.isna(fila_usuario.iloc[0][col_entrada]) else ""
+        marca_ref_salida = str(fila_usuario.iloc[0][col_ref_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_salida]) else ""
+        marca_ref_retorno = str(fila_usuario.iloc[0][col_ref_retorno]).strip() if not pd.isna(fila_usuario.iloc[0][col_ref_retorno]) else ""
+        marca_salida = str(fila_usuario.iloc[0][col_salida]).strip() if not pd.isna(fila_usuario.iloc[0][col_salida]) else ""
 
-                    st.info(f"Saliste a almuerzo a las: {marca_ref_salida}")
+        # Inyección única de estilos para las Tarjetas Estéticas del Panel Interno
+        st.markdown("""
+            <style>
+            div[data-testid="stButton"] button div p {
+                font-weight: bold !important;
+            }
+            .custom-card {
+                background-color: #ffffff;
+                border-radius: 14px;
+                box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.06);
+                margin-bottom: 20px;
+                overflow: hidden;
+                border: 1px solid #eaeaea;
+            }
+            .custom-card-header {
+                padding: 12px 16px;
+                color: white;
+                font-weight: bold;
+                font-size: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .custom-card-header.blue {
+                background-color: #3b5998;
+            }
+            .custom-card-header.teal {
+                background-color: #008080;
+            }
+            .custom-card-body {
+                padding: 16px;
+                background-color: #fcfcfc;
+            }
+            .custom-badge {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                text-transform: uppercase;
+            }
+            .custom-badge.active {
+                background-color: #4cd137;
+                color: white;
+            }
+            .custom-badge.pending {
+                background-color: #eccc68;
+                color: #2f3542;
+            }
+            .custom-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #f1f2f6;
+                font-size: 14px;
+            }
+            .custom-row:last-child {
+                border-bottom: none;
+            }
+            .custom-label {
+                color: #747d8c;
+            }
+            .custom-value {
+                color: #2f3542;
+                font-weight: 500;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
-                    if st.button("Terminar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
-
-                        ahora_click = obtener_hora_peru()
-
-                        hora_formateada = ahora_click.strftime("%I:%M %p")
-
-                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
-
-                        wks.clear()
-
-                        set_with_dataframe(wks, df)
-
-                        st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
-
-                        st.session_state.autenticado = False
-
-                        st.session_state.usuario_actual = ""
-
-                        st.rerun()
-
+        # =========================================================
+        # PESTAÑA 1: PANEL DE MARCADO DIARIO (ADMIN Y ASESORES)
+        # =========================================================
+        with tab_marcado:
+            st.write("")
+            
+            st.markdown("##### Verificación de Ubicación Requerida")
+            st.markdown("<small style='color:gray;'>Haz clic en el botón de abajo para activar tu GPS e iniciar la verificación de rango.</small>", unsafe_allow_html=True)
+            loc = streamlit_geolocation()
+            
+            ubicacion_valida = False
+            
+            if loc and loc['latitude'] is not None:
+                lat_user = loc['latitude']
+                lon_user = loc['longitude']
+                distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
+                
+                if distancia_km <= RADIO_MAX_KM:
+                    ubicacion_valida = True
+                    st.success(f"Ubicación confirmada. Te encuentras dentro del rango permitido ({distancia_km:.2f} km de la base).")
                 else:
-
-                    st.info(f"Refrigerio registrado: {marca_ref_salida} a {marca_ref_retorno}")
-
-                
-
+                    st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
+            else:
+                st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
+            
+            st.write("---")
+            
+            tiempo_peru_actual = obtener_hora_peru()
+            hora_visualizacion = tiempo_peru_actual.strftime("%I:%M %p")
+            
+            # CASO 1: NO TIENE ENTRADA REGISTRADA
+            if marca_entrada in ["Falta", "-", "", "nan", "None"]:
+                st.info("Estado: Sin registro de ingreso hoy.")
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
                 st.write("")
-
-                if st.button("Registrar Salida Final", use_container_width=True, disabled=not ubicacion_valida):
-
+                
+                if st.button("Registrar Entrada", use_container_width=True, disabled=not ubicacion_valida):
                     ahora_click = obtener_hora_peru()
-
                     hora_formateada = ahora_click.strftime("%I:%M %p")
-
-                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
-
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
                     wks.clear()
-
                     set_with_dataframe(wks, df)
-
-                    st.success(f"Salida registrada automáticamente: {hora_formateada}")
-
+                    st.success(f"Entrada registrada: {hora_formateada}")
                     st.session_state.autenticado = False
-
                     st.session_state.usuario_actual = ""
-
                     st.rerun()
-
-
+                
+                if st.button("Registrar Permiso", use_container_width=True):
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = "Permiso"
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = "Permiso"
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = "Permiso"
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = "Permiso"
+                    wks.clear()
+                    set_with_dataframe(wks, df)
+                    st.success("Permiso registrado.")
+                    st.session_state.autenticado = False
+                    st.session_state.usuario_actual = ""
+                    st.rerun()
+                    
+            elif marca_entrada == "Permiso":
+                st.info("Tu estado de hoy es: Permiso.")
+                
+            # CASO 2: JORNADA YA COMPLETADA TOTALMENTE
+            elif marca_salida not in ["Falta", "-", "", "nan", "None"]:
+                st.success(f"Jornada registrada.\nEntrada: {marca_entrada} | Ref: {marca_ref_salida} - {marca_ref_retorno} | Salida: {marca_salida}")
+                
+            # CASO 3: TIENE ENTRADA PERO NO TIENE SALIDA FINAL (Botones flexibles disponibles)
+            else:
+                st.warning(f"Ingreso registrado a las: {marca_entrada}")
+                st.metric(label="Hora actual detectada para registro", value=hora_visualizacion)
+                st.write("")
+                
+                if marca_ref_salida in ["Falta", "-", "", "nan", "None"]:
+                    if st.button("Iniciar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                        ahora_click = obtener_hora_peru()
+                        hora_formateada = ahora_click.strftime("%I:%M %p")
+                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
+                        wks.clear()
+                        set_with_dataframe(wks, df)
+                        st.success(f"Salida a refrigerio registrada: {hora_formateada}")
+                        st.session_state.autenticado = False
+                        st.session_state.usuario_actual = ""
+                        st.rerun()
+                elif marca_ref_retorno in ["Falta", "-", "", "nan", "None"]:
+                    st.info(f"Saliste a almuerzo a las: {marca_ref_salida}")
+                    if st.button("Terminar Refrigerio", use_container_width=True, disabled=not ubicacion_valida):
+                        ahora_click = obtener_hora_peru()
+                        hora_formateada = ahora_click.strftime("%I:%M %p")
+                        df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
+                        wks.clear()
+                        set_with_dataframe(wks, df)
+                        st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
+                        st.session_state.autenticado = False
+                        st.session_state.usuario_actual = ""
+                        st.rerun()
+                else:
+                    st.info(f"Refrigerio registrado: {marca_ref_salida} a {marca_ref_retorno}")
+                
+                st.write("")
+                if st.button("Registrar Salida Final", use_container_width=True, disabled=not ubicacion_valida):
+                    ahora_click = obtener_hora_peru()
+                    hora_formateada = ahora_click.strftime("%I:%M %p")
+                    df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
+                    wks.clear()
+                    set_with_dataframe(wks, df)
+                    st.success(f"Salida registrada automáticamente: {hora_formateada}")
+                    st.session_state.autenticado = False
+                    st.session_state.usuario_actual = ""
+                    st.rerun()
 
             # Historial propio estructurado
-
             st.write("")
-
             with st.expander("Consultar mi historial"):
-
                 fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
-
                 if fecha_busqueda:
-
                     fecha_formateada_busqueda = fecha_busqueda.strftime("%d/%m/%Y")
-
                     col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
-
                     col_hist_ref_sal = f"{fecha_formateada_busqueda} (Inicio Ref)"
-
                     col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
-
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
-
                     
-
                     if col_hist_ent in df.columns and col_hist_sal in df.columns:
-
                         val_ent = str(fila_usuario.iloc[0][col_hist_ent]).strip()
-
                         val_r_sal = str(fila_usuario.iloc[0][col_hist_ref_sal]).strip() if col_hist_ref_sal in df.columns else ""
-
                         val_r_ret = str(fila_usuario.iloc[0][col_hist_ref_ret]).strip() if col_hist_ref_ret in df.columns else ""
-
                         val_sal = str(fila_usuario.iloc[0][col_hist_sal]).strip()
-
                         
-
                         minutos_dia = calcular_minutos_netos_raw(val_ent, val_r_sal, val_r_ret, val_sal)
-
+                        badge_status = "active" if val_sal not in ["Falta", "Permiso", "-", ""] else "pending"
+                        badge_label = "Completo" if badge_status == "active" else "Incompleto"
                         
-
-                        df_individual = pd.DataFrame({
-
-                            "Fecha": [fecha_formateada_busqueda],
-
-                            "Entrada": [val_ent],
-
-                            "Inicio Ref": [val_r_sal if val_r_sal != "" else "-"],
-
-                            "Fin Ref": [val_r_ret if val_r_ret != "" else "-"],
-
-                            "Salida": [val_sal],
-
-                            "Horas Netas": [formatear_minutos_a_string(minutos_dia)]
-
-                        })
-
-                        st.dataframe(df_individual, use_container_width=True, hide_index=True)
-
+                        # Inyección estética del Card tipo AFP/SIS para el Historial Diario
+                        st.markdown(f"""
+                            <div class="custom-card">
+                                <div class="custom-card-header blue">
+                                    <span>Historial de Marcado</span>
+                                    <span class="custom-badge {badge_status}">{badge_label}</span>
+                                </div>
+                                <div class="custom-card-body">
+                                    <div class="custom-row"><span class="custom-label">Fecha:</span><span class="custom-value">{fecha_formateada_busqueda}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Entrada:</span><span class="custom-value">{val_ent}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Inicio Ref:</span><span class="custom-value">{val_r_sal if val_r_sal != "" else "-"}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Fin Ref:</span><span class="custom-value">{val_r_ret if val_r_ret != "" else "-"}</span></div>
+                                    <div class="custom-row"><span class="custom-label">Salida:</span><span class="custom-value">{val_sal}</span></div>
+                                    <div class="custom-row" style="font-weight:bold;"><span class="custom-label" style="color:black; font-weight:bold;">Horas Netas:</span><span class="custom-value" style="color:#3b5998;">{formatear_minutos_a_string(minutos_dia)}</span></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
                     else:
-
                         st.caption("Sin registros para esta fecha específica.")
-
                     
-
                     # =========================================================
-
                     # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
-
                     # =========================================================
-
                     st.markdown("---")
-
                     st.markdown(f"##### Resumen Mensual ({nombre_pestana})")
-
                     
-
                     total_minutos_mes = 0
-
                     for col in df.columns:
-
                         if " (Entrada)" in col:
-
                             col_base_fecha = col.replace(" (Entrada)", "")
-
                             col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
-
                             col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
-
                             col_salida_par = f"{col_base_fecha} (Salida)"
-
                             
-
                             if col_salida_par in df.columns:
-
                                 v_e = str(fila_usuario.iloc[0][col]).strip()
-
                                 v_rs = str(fila_usuario.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df.columns else ""
-
                                 v_rr = str(fila_usuario.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df.columns else ""
-
                                 v_s = str(fila_usuario.iloc[0][col_salida_par]).strip()
-
                                 
-
                                 total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
-
                     
-
                     string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
-
                     st.metric(label="Total neto acumulado en el mes", value=string_acumulado_real)
 
-
-
-                    # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
-
+                    # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets estructurada en una Tarjeta Estética
                     if "Meta" in df.columns:
-
                         try:
-
                             meta_horas = float(fila_usuario.iloc[0]["Meta"])
-
                             if pd.isna(meta_horas) or meta_horas <= 0:
-
                                 meta_horas = 0
-
                         except ValueError:
-
                             meta_horas = 0
-
                         
-
                         if meta_horas > 0:
-
                             total_horas_mes = total_minutos_mes / 60.0
-
                             porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
-
-                            st.write("")
-
-                            st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
-
-                            st.progress(porcentaje_avance)
-
                             
-
+                            st.write("")
+                            # Envoltorio estético tipo Tarjeta Verde Esmeralda (SIS) para el Resumen de Metas
+                            st.markdown(f"""
+                                <div class="custom-card">
+                                    <div class="custom-card-header teal">
+                                        <span>Meta de Horas Mensual</span>
+                                        <span class="custom-badge active">{porcentaje_avance*100:.1f}%</span>
+                                    </div>
+                                    <div class="custom-card-body">
+                                        <div class="custom-row"><span class="custom-label">Meta establecida:</span><span class="custom-value">{meta_horas:.0f} h</span></div>
+                                        <div class="custom-row"><span class="custom-label">Horas ejecutadas:</span><span class="custom-value">{total_horas_mes:.1f} h</span></div>
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            st.progress(porcentaje_avance)
+                            
                             minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
-
                             if minutos_restantes > 0:
-
                                 st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
-
                             else:
-
                                 st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
-
-
         # =========================================================
-
         # PESTAÑA 2: REPORTE GENERAL (VISIBLE PARA EL ADMIN CON REFRIGERIO)
-
         # =========================================================
-
         if es_admin:
-
             with tab_reporte:
-
                 st.write("")
-
                 st.markdown("##### Filtro de Asistencia General")
-
                 fecha_busqueda_admin = st.date_input("Fecha a consultar:", value=obtener_hora_peru().date(), key="cal_admin")
-
                 
-
                 if fecha_busqueda_admin:
-
                     fecha_formateada_busqueda = fecha_busqueda_admin.strftime("%d/%m/%Y")
-
                     col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
-
                     col_hist_ref_sal = f"{fecha_formateada_busqueda} (Inicio Ref)"
-
                     col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
-
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
-
                     
-
                     if col_hist_ent in df.columns and col_hist_sal in df.columns:
-
                         df_reporte_raw = []
-
                         for idx, row in df.iterrows():
-
                             v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df.columns else "Falta"
-
                             v_rs = str(row[col_hist_ref_sal]).strip() if col_hist_ref_sal in df.columns else "Falta"
-
                             v_rr = str(row[col_hist_ref_ret]).strip() if col_hist_ref_ret in df.columns else "Falta"
-
                             v_s = str(row[col_hist_sal]).strip() if col_hist_sal in df.columns else "Falta"
-
                             
-
                             minutos_totales = calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
-
-                            horas_netas_str = formatear_minutos_a_string(minutos_totales) if minutos_totales > 0 else "0 h 0 min"
-
+                            horas_netas_str = formatear_minutos_a_string(minutos_totales) if minutes_totales > 0 else "0 h 0 min"
                             
-
                             # Lectura limpia del valor de la Meta por cada fila
-
                             meta_individual = str(row["Meta"]).split('.')[0].strip() if "Meta" in df.columns and not pd.isna(row["Meta"]) else "-"
-
                             
-
                             df_reporte_raw.append({
-
                                 "Asesor": row["Usuario"],
-
                                 "Meta (H)": meta_individual,
-
                                 "Entrada": v_e,
-
                                 "Inicio Ref": v_rs,
-
                                 "Fin Ref": v_rr,
-
                                 "Salida": v_s,
-
                                 "Horas Netas": horas_netas_str
-
                             })
-
                             
-
                         df_reporte_final = pd.DataFrame(df_reporte_raw)
-
                         st.dataframe(df_reporte_final, use_container_width=True, hide_index=True)
-
                     else:
-
                         st.caption(f"No hay datos registrados para el {fecha_formateada_busqueda}.")
 
-
-
         # Botón para salir de la app
-
         st.write("")
-
         if st.button("Cerrar Sesión", use_container_width=True):
-
             st.session_state.autenticado = False
-
             st.session_state.usuario_actual = ""
-
             st.rerun()
-
-
 
 except Exception as e:
     st.error("Error de conexión con la base de datos.")
-    st.code(str(e)) 
-
+    st.code(str(e))

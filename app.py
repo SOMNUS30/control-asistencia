@@ -115,7 +115,7 @@ try:
         st.session_state.autenticado = False
         st.session_state.usuario_actual = ""
 
-    iif not st.session_state.autenticado:
+    if not st.session_state.autenticado:
         # Inyección de estilos CSS avanzados y adaptables (Media Queries) para PC y celular según el modelo
         st.markdown("""
             <style>

@@ -267,7 +267,7 @@ try:
         with col_izq:
             # En PC este bloque aloja el texto decorativo blanco. En celular opera como la cabecera superior.
             st.markdown("<h1 style='text-align: center; color: white; font-size: 28px; font-weight: 800; margin: 0;'>Bienvenido</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 5px;'>Inicia sesión con codigo de usuario para continuar</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 5px;'>Inicia sesión con código de usuario para continuar</p>", unsafe_allow_html=True)
 
         with col_centro:
             with st.container():

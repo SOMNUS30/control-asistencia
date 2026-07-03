@@ -454,7 +454,7 @@ try:
 
             # Historial propio estructurado
             st.write("")
-            with st.expand_block if True else st.container(): # Simulación nativa para encapsular contexto
+            with st.container(): 
                 with st.expander("Consultar mi historial"):
                     fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
                     if fecha_busqueda:

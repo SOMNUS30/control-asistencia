@@ -193,7 +193,6 @@ try:
 
             /* --- CONFIGURACIÓN PARA CELULAR - TOTALMENTE BLANCO Y PANTALLA COMPLETA --- */
             @media (max-width: 768px) {
-                /* Forzamos que la app en móvil ignore los márgenes nativos y use fondo blanco */
                 .stMainBlockContainer, .block-container, .stApp {
                     padding: 0px !important;
                     margin: 0px !important;
@@ -202,19 +201,17 @@ try:
                     background-color: #ffffff !important;
                 }
                 
-                /* Quitamos márgenes de contenedores intermedios */
                 div[data-testid="stElementContainer"], div[data-testid="stVerticalBlock"] {
                     padding: 0px !important;
                     margin: 0px !important;
                     width: 100% !important;
                 }
 
-                /* Caja principal al 100% de pantalla con fondo completamente blanco uniforme */
                 div[data-testid="stHorizontalBlock"] {
                     display: flex !important;
                     flex-direction: column !important;
                     background-color: #ffffff !important;
-                    background-image: none !important; /* Eliminamos los círculos de fondo */
+                    background-image: none !important;
                     width: 100% !important;
                     min-height: 100vh !important;
                     margin: 0px !important;
@@ -225,14 +222,12 @@ try:
                     box-shadow: none !important;
                 }
 
-                /* Ocultamos por completo el bloque decorativo azul nativo en móviles */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
                     display: none !important;
                 }
 
-                /* Centramos el formulario limpiamente sobre el fondo blanco */
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                    padding: 80px 24px 40px 24px !important; /* Espaciado cómodo superior */
+                    padding: 80px 24px 40px 24px !important;
                     background-color: #ffffff !important;
                     width: 100% !important;
                     display: flex !important;
@@ -240,7 +235,6 @@ try:
                     justify-content: center !important;
                 }
 
-                /* Eliminamos recuadros grises residuales */
                 div[data-testid="stVerticalBlock"] > div {
                     background-color: transparent !important;
                     box-shadow: none !important;
@@ -248,7 +242,6 @@ try:
                     border: none !important;
                 }
                 
-                /* Título grande del Login en el celular */
                 div[data-testid="stHorizontalBlock"] h2 {
                     font-size: 32px !important;
                     font-weight: 700 !important;
@@ -461,81 +454,97 @@ try:
 
             # Historial propio estructurado
             st.write("")
-            with st.expander("Consultar mi historial"):
-                fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
-                if fecha_busqueda:
-                    fecha_formateada_busqueda = fecha_busqueda.strftime("%d/%m/%Y")
-                    col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
-                    col_hist_ref_sal = f"{fecha_formateada_busqueda} (Inicio Ref)"
-                    col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
-                    col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
-                    
-                    if col_hist_ent in df.columns and col_hist_sal in df.columns:
-                        val_ent = str(fila_usuario.iloc[0][col_hist_ent]).strip()
-                        val_r_sal = str(fila_usuario.iloc[0][col_hist_ref_sal]).strip() if col_hist_ref_sal in df.columns else ""
-                        val_r_ret = str(fila_usuario.iloc[0][col_hist_ref_ret]).strip() if col_hist_ref_ret in df.columns else ""
-                        val_sal = str(fila_usuario.iloc[0][col_hist_sal]).strip()
+            with st.expand_block if True else st.container(): # Simulación nativa para encapsular contexto
+                with st.expander("Consultar mi historial"):
+                    fecha_busqueda = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor")
+                    if fecha_busqueda:
+                        fecha_formateada_busqueda = fecha_busqueda.strftime("%d/%m/%Y")
                         
-                        minutos_dia = calcular_minutos_netos_raw(val_ent, val_r_sal, val_r_ret, val_sal)
+                        # DINÁMICO: Detectamos qué pestaña del Sheets corresponde al mes de la fecha buscada
+                        mes_busqueda_num = fecha_busqueda.month
+                        pestana_busqueda = MESES_ESPANOL[mes_busqueda_num]
                         
-                        df_individual = pd.DataFrame({
-                            "Fecha": [fecha_formateada_busqueda],
-                            "Entrada": [val_ent],
-                            "Inicio Ref": [val_r_sal if val_r_sal != "" else "-"],
-                            "Fin Ref": [val_r_ret if val_r_ret != "" else "-"],
-                            "Salida": [val_sal],
-                            "Horas Netas": [formatear_minutos_a_string(minutos_dia)]
-                        })
-                        st.dataframe(df_individual, use_container_width=True, hide_index=True)
-                    else:
-                        st.caption("Sin registros para esta fecha específica.")
-                    
-                    # =========================================================
-                    # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
-                    # =========================================================
-                    st.markdown("---")
-                    st.markdown(f"##### Resumen Mensual ({nombre_pestana})")
-                    
-                    total_minutos_mes = 0
-                    for col in df.columns:
-                        if " (Entrada)" in col:
-                            col_base_fecha = col.replace(" (Entrada)", "")
-                            col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
-                            col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
-                            col_salida_par = f"{col_base_fecha} (Salida)"
-                            
-                            if col_salida_par in df.columns:
-                                v_e = str(fila_usuario.iloc[0][col]).strip()
-                                v_rs = str(fila_usuario.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df.columns else ""
-                                v_rr = str(fila_usuario.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df.columns else ""
-                                v_s = str(fila_usuario.iloc[0][col_salida_par]).strip()
-                                
-                                total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
-                    
-                    string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
-                    st.metric(label="Total neto acumulado en el mes", value=string_acumulado_real)
-
-                    # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
-                    if "Meta" in df.columns:
+                        # Conectamos y leemos la pestaña exacta seleccionada en el calendario
                         try:
-                            meta_horas = float(fila_usuario.iloc[0]["Meta"])
-                            if pd.isna(meta_horas) or meta_horas <= 0:
-                                meta_horas = 0
-                        except ValueError:
-                            meta_horas = 0
+                            wks_historial = hoja_calculo.worksheet(pestana_busqueda)
+                            df_historial = get_as_dataframe(wks_historial).dropna(how="all").dropna(axis=1, how="all")
+                            fila_usuario_historial = df_historial[df_historial["Usuario"] == st.session_state.usuario_actual]
+                        except Exception:
+                            df_historial = pd.DataFrame()
+                            fila_usuario_historial = pd.DataFrame()
+
+                        col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
+                        col_hist_ref_sal = f"{fecha_formateada_busqueda} (Inicio Ref)"
+                        col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
+                        col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                         
-                        if meta_horas > 0:
-                            total_horas_mes = total_minutos_mes / 60.0
-                            porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
-                            st.write("")
-                            st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
-                            st.progress(porcentaje_avance)
+                        if not fila_usuario_historial.empty and col_hist_ent in df_historial.columns and col_hist_sal in df_historial.columns:
+                            val_ent = str(fila_usuario_historial.iloc[0][col_hist_ent]).strip()
+                            val_r_sal = str(fila_usuario_historial.iloc[0][col_hist_ref_sal]).strip() if col_hist_ref_sal in df_historial.columns else ""
+                            val_r_ret = str(fila_usuario_historial.iloc[0][col_hist_ref_ret]).strip() if col_hist_ref_ret in df_historial.columns else ""
+                            val_sal = str(fila_usuario_historial.iloc[0][col_hist_sal]).strip()
                             
-                            minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
-                            if minutos_restantes > 0:
-                                st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
-                            else:
-                                st.success("¡Felicidades! Has completado tu meta de horas del mes.")
+                            minutos_dia = calcular_minutos_netos_raw(val_ent, val_r_sal, val_r_ret, val_sal)
+                            
+                            df_individual = pd.DataFrame({
+                                "Fecha": [fecha_formateada_busqueda],
+                                "Entrada": [val_ent],
+                                "Inicio Ref": [val_r_sal if val_r_sal != "" else "-"],
+                                "Fin Ref": [val_r_ret if val_r_ret != "" else "-"],
+                                "Salida": [val_sal],
+                                "Horas Netas": [formatear_minutos_a_string(minutos_dia)]
+                            })
+                            st.dataframe(df_individual, use_container_width=True, hide_index=True)
+                        else:
+                            st.caption(f"Sin registros para esta fecha en la pestaña de {pestana_busqueda}.")
+                        
+                        # =========================================================
+                        # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
+                        # =========================================================
+                        st.markdown("---")
+                        st.markdown(f"##### Resumen Mensual ({pestana_busqueda})")
+                        
+                        total_minutos_mes = 0
+                        if not fila_usuario_historial.empty:
+                            for col in df_historial.columns:
+                                if " (Entrada)" in col:
+                                    col_base_fecha = col.replace(" (Entrada)", "")
+                                    col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
+                                    col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
+                                    col_salida_par = f"{col_base_fecha} (Salida)"
+                                    
+                                    if col_salida_par in df_historial.columns:
+                                        v_e = str(fila_usuario_historial.iloc[0][col]).strip()
+                                        v_rs = str(fila_usuario_historial.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df_historial.columns else ""
+                                        v_rr = str(fila_usuario_historial.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df_historial.columns else ""
+                                        v_s = str(fila_usuario_historial.iloc[0][col_salida_par]).strip()
+                                        
+                                        total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
+                        
+                        string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
+                        st.metric(label=f"Total neto acumulado en {pestana_busqueda.lower()}", value=string_acumulado_real)
+
+                        # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
+                        if not fila_usuario_historial.empty and "Meta" in df_historial.columns:
+                            try:
+                                meta_horas = float(fila_usuario_historial.iloc[0]["Meta"])
+                                if pd.isna(meta_horas) or meta_horas <= 0:
+                                    meta_horas = 0
+                            except ValueError:
+                                meta_horas = 0
+                            
+                            if meta_horas > 0:
+                                total_horas_mes = total_minutos_mes / 60.0
+                                porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
+                                st.write("")
+                                st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
+                                st.progress(porcentaje_avance)
+                                
+                                minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
+                                if minutos_restantes > 0:
+                                    st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
+                                else:
+                                    st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (VISIBLE PARA EL ADMIN CON REFRIGERIO)
@@ -553,19 +562,28 @@ try:
                     col_hist_ref_ret = f"{fecha_formateada_busqueda} (Fin Ref)"
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                     
-                    if col_hist_ent in df.columns and col_hist_sal in df.columns:
+                    # DINÁMICO: Cargamos los datos de la pestaña correspondiente para el Administrador
+                    mes_admin_num = fecha_busqueda_admin.month
+                    pestana_admin = MESES_ESPANOL[mes_admin_num]
+                    
+                    try:
+                        wks_admin = hoja_calculo.worksheet(pestana_admin)
+                        df_admin = get_as_dataframe(wks_admin).dropna(how="all").dropna(axis=1, how="all")
+                    except Exception:
+                        df_admin = pd.DataFrame()
+                    
+                    if not df_admin.empty and col_hist_ent in df_admin.columns and col_hist_sal in df_admin.columns:
                         df_reporte_raw = []
-                        for idx, row in df.iterrows():
-                            v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df.columns else "Falta"
-                            v_rs = str(row[col_hist_ref_sal]).strip() if col_hist_ref_sal in df.columns else "Falta"
-                            v_rr = str(row[col_hist_ref_ret]).strip() if col_hist_ref_ret in df.columns else "Falta"
-                            v_s = str(row[col_hist_sal]).strip() if col_hist_sal in df.columns else "Falta"
+                        for idx, row in df_admin.iterrows():
+                            v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df_admin.columns else "Falta"
+                            v_rs = str(row[col_hist_ref_sal]).strip() if col_hist_ref_sal in df_admin.columns else "Falta"
+                            v_rr = str(row[col_hist_ref_ret]).strip() if col_hist_ref_ret in df_admin.columns else "Falta"
+                            v_s = str(row[col_hist_sal]).strip() if col_hist_sal in df_admin.columns else "Falta"
                             
                             minutos_totales = calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
                             horas_netas_str = formatear_minutos_a_string(minutos_totales) if minutos_totales > 0 else "0 h 0 min"
                             
-                            # Lectura limpia del valor de la Meta por cada fila
-                            meta_individual = str(row["Meta"]).split('.')[0].strip() if "Meta" in df.columns and not pd.isna(row["Meta"]) else "-"
+                            meta_individual = str(row["Meta"]).split('.')[0].strip() if "Meta" in df_admin.columns and not pd.isna(row["Meta"]) else "-"
                             
                             df_reporte_raw.append({
                                 "Asesor": row["Usuario"],
@@ -580,7 +598,7 @@ try:
                         df_reporte_final = pd.DataFrame(df_reporte_raw)
                         st.dataframe(df_reporte_final, use_container_width=True, hide_index=True)
                     else:
-                        st.caption(f"No hay datos registrados para el {fecha_formateada_busqueda}.")
+                        st.caption(f"No hay datos registrados en la pestaña {pestana_admin} para el {fecha_formateada_busqueda}.")
 
         # Botón para salir de la app
         st.write("")

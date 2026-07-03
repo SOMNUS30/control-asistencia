@@ -91,24 +91,48 @@ try:
     col_ref_retorno = f"{fecha_hoy} (Fin Ref)"
     col_salida = f"{fecha_hoy} (Salida)"
     
-    cambio_estructura = False
+    columnas_a_crear = []
     
+    # Verificamos qué columnas faltan sin alterar el DataFrame original bruscamente
     if col_entrada not in df.columns:
-        df[col_entrada] = "Falta"
-        cambio_estructura = True
+        columnas_a_crear.append(col_entrada)
     if col_ref_salida not in df.columns:
-        df[col_ref_salida] = "Falta"
-        cambio_estructura = True
+        columnas_a_crear.append(col_ref_salida)
     if col_ref_retorno not in df.columns:
-        df[col_ref_retorno] = "Falta"
-        cambio_estructura = True
+        columnas_a_crear.append(col_ref_retorno)
     if col_salida not in df.columns:
-        df[col_salida] = "Falta"
-        cambio_estructura = True
+        columnas_a_crear.append(col_salida)
         
-    if cambio_estructura:
-        wks.clear()
-        set_with_dataframe(wks, df)
+    if columnas_a_crear:
+        # 1. Obtenemos el número de la última columna actual en el Sheets
+        num_columnas_actuales = wks.col_count
+        num_nuevas = len(columnas_a_crear)
+        
+        # 2. Agregamos físicamente el espacio de columnas nuevas a la derecha en Google Sheets
+        wks.add_cols(num_nuevas)
+        
+        # 3. Preparamos los títulos y los valores por defecto ("Falta") para cada fila
+        num_filas = len(df) + 1  # Incluye la fila de encabezados
+        
+        for i, col_name in enumerate(columnas_a_crear):
+            col_index = num_columnas_actuales + i + 1
+            
+            # Creamos una lista de celdas para actualizar de golpe esa columna completa
+            lista_celdas = wks.range(1, col_index, num_filas, col_index)
+            
+            # La primera celda es el encabezado (la fecha)
+            lista_celdas[0].value = col_name
+            
+            # El resto de celdas hacia abajo se llenan con "Falta"
+            for celda in lista_celdas[1:]:
+                celda.value = "Falta"
+                
+            # Enviamos la actualización de esa columna al Sheets de forma segura sin borrar nada
+            wks.update_cells(lista_celdas)
+            
+        # 4. Actualizamos el DataFrame interno de la app para que reconozca los nuevos cambios de inmediato
+        wks_actualizado = hoja_calculo.worksheet(nombre_pestana)
+        df = get_as_dataframe(wks_actualizado).dropna(how="all").dropna(axis=1, how="all")
     # =========================================================
 
     if "autenticado" not in st.session_state:

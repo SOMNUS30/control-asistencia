@@ -378,12 +378,12 @@ try:
             
             ubicacion_valida = False
             
-            # SI EL USUARIO PULSÓ EL BOTÓN Y EL GPS ESTÁ BUSCANDO LA SEÑAL (ESTADO EN ESPERA)
+            # PANTALLA DE CARGA REAL: Mientras el GPS del celular está buscando la señal
             if loc and loc['latitude'] is None and loc['longitude'] is None:
                 st.write("")
-                # Forzamos una barra visual animada de carga que se queda fija en pantalla
-                st.info("🔄 Conectando con el GPS del celular y calculando rango... Por favor, espera unos segundos.")
-                st.progress(0, text="Buscando satélites...")
+                with st.spinner("Comprobando ubicación... Por favor, espera."):
+                    # Este bloque vacío mantiene la animación girando en la pantalla
+                    pass
             
             # CUANDO POR FIN LLEGAN LAS COORDENADAS COMPLETAS
             elif loc and loc['latitude'] is not None:
@@ -397,7 +397,7 @@ try:
                 else:
                     st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
             
-            # ESTADO INICIAL: CUANDO RECIÉN ENTRAN A LA PESTAÑA Y NO HAN PULSADO NADA
+            # ESTADO INICIAL: Antes de pulsar el botón del GPS
             else:
                 st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
             

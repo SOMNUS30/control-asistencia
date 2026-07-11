@@ -273,30 +273,6 @@ try:
                     text-align: center !important;
                     margin-bottom: 30px !important;
                 }
-
-                /* --- DISEÑO MODERNO Y PREMIUM PARA EL BOTÓN DE UBICACIÓN (GPS) --- */
-                div.stButton button[data-testid="baseButton-secondary"] {
-                    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%) !important;
-                    color: white !important;
-                    border: none !important;
-                    border-radius: 14px !important;
-                    padding: 14px 20px !important;
-                    font-size: 16px !important;
-                    font-weight: bold !important;
-                    letter-spacing: 0.5px !important;
-                    box-shadow: 0px 5px 15px rgba(108, 92, 231, 0.3) !important;
-                    transition: all 0.2s ease-in-out !important;
-                    width: 100% !important;
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                }
-
-                /* Efecto sutil al presionar el botón en el teléfono */
-                div.stButton button[data-testid="baseButton-secondary"]:active {
-                    transform: scale(0.97) !important;
-                    box-shadow: 0px 2px 8px rgba(108, 92, 231, 0.2) !important;
-                }
             }
             </style>
         """, unsafe_allow_html=True)

@@ -273,38 +273,30 @@ try:
                     text-align: center !important;
                     margin-bottom: 30px !important;
                 }
-            }
 
-            /* --- ELEMENTOS COMUNES DE CAMPOS Y ENTRADAS (AMBOS MODELOS) --- */
-            div[data-testid="stTextInput"] input {
-                border-radius: 14px !important;
-                border: 1px solid #c2c9d1 !important;
-                padding: 12px !important;
-                font-size: 16px !important;
-                background-color: #f9fbfd !important;
-                transition: border-color 0.2s, box-shadow 0.2s !important;
-            }
-            div[data-testid="stTextInput"] input:focus {
-                border-color: #3b5998 !important;
-                box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.15) !important;
-            }
-            div[data-testid="stButton"] button {
-                background-color: #3b5998 !important;
-                color: white !important;
-                border-radius: 14px !important;
-                padding: 14px 24px !important;
-                border: none !important;
-                font-size: 16px !important;
-                font-weight: bold !important;
-                letter-spacing: 0.5px !important;
-                box-shadow: 0px 4px 12px rgba(59, 89, 152, 0.25) !important;
-                transition: background-color 0.2s, transform 0.1s !important;
-            }
-            div[data-testid="stButton"] button:hover {
-                background-color: #2d4373 !important;
-            }
-            div[data-testid="stButton"] button:active {
-                transform: scale(0.98) !important;
+                /* --- DISEÑO MODERNO Y PREMIUM PARA EL BOTÓN DE UBICACIÓN (GPS) --- */
+                div.stButton button[data-testid="baseButton-secondary"] {
+                    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 14px !important;
+                    padding: 14px 20px !important;
+                    font-size: 16px !important;
+                    font-weight: bold !important;
+                    letter-spacing: 0.5px !important;
+                    box-shadow: 0px 5px 15px rgba(108, 92, 231, 0.3) !important;
+                    transition: all 0.2s ease-in-out !important;
+                    width: 100% !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                }
+
+                /* Efecto sutil al presionar el botón en el teléfono */
+                div.stButton button[data-testid="baseButton-secondary"]:active {
+                    transform: scale(0.97) !important;
+                    box-shadow: 0px 2px 8px rgba(108, 92, 231, 0.2) !important;
+                }
             }
             </style>
         """, unsafe_allow_html=True)

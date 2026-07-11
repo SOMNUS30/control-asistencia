@@ -379,15 +379,17 @@ try:
             ubicacion_valida = False
             
             if loc and loc['latitude'] is not None:
-                lat_user = loc['latitude']
-                lon_user = loc['longitude']
-                distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
-                
-                if distancia_km <= RADIO_MAX_KM:
-                    ubicacion_valida = True
-                    st.success(f"Ubicación confirmada. Te encuentras dentro del rango permitido ({distancia_km:.2f} km de la base).")
-                else:
-                    st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
+                # Ponemos la pantalla de carga justo cuando ya tenemos las coordenadas y empieza el cálculo
+                with st.spinner("Verificando rango de ubicación..."):
+                    lat_user = loc['latitude']
+                    lon_user = loc['longitude']
+                    distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
+                    
+                    if distancia_km <= RADIO_MAX_KM:
+                        ubicacion_valida = True
+                        st.success(f"Ubicación confirmada. Te encuentras dentro del rango permitido ({distancia_km:.2f} km de la base).")
+                    else:
+                        st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
             else:
                 st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
             

@@ -378,15 +378,7 @@ try:
             
             ubicacion_valida = False
             
-            # PANTALLA DE CARGA REAL: Mientras el GPS del celular está buscando la señal
-            if loc and loc['latitude'] is None and loc['longitude'] is None:
-                st.write("")
-                with st.spinner("Comprobando ubicación... Por favor, espera."):
-                    # Este bloque vacío mantiene la animación girando en la pantalla
-                    pass
-            
-            # CUANDO POR FIN LLEGAN LAS COORDENADAS COMPLETAS
-            elif loc and loc['latitude'] is not None:
+            if loc and loc['latitude'] is not None:
                 lat_user = loc['latitude']
                 lon_user = loc['longitude']
                 distancia_km = calcular_distancia(lat_user, lon_user, LAT_OBJETIVO, LON_OBJETIVO)
@@ -396,8 +388,6 @@ try:
                     st.success(f"Ubicación confirmada. Te encuentras dentro del rango permitido ({distancia_km:.2f} km de la base).")
                 else:
                     st.error(f"Acceso denegado. Estás fuera del rango permitido. Distancia actual: {distancia_km:.2f} km (Máximo permitido: {RADIO_MAX_KM} km).")
-            
-            # ESTADO INICIAL: Antes de pulsar el botón del GPS
             else:
                 st.warning("Por favor, pulsa el botón del GPS de arriba y otorga los permisos correspondientes en tu navegador web para continuar.")
             

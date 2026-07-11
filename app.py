@@ -569,6 +569,54 @@ try:
                                     st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
                                 else:
                                     st.success("¡Felicidades! Has completado tu meta de horas del mes.")
+                        
+                        # =========================================================
+                        # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
+                        # =========================================================
+                        st.markdown("---")
+                        st.markdown(f"##### Resumen Mensual ({pestana_busqueda})")
+                        
+                        total_minutos_mes = 0
+                        if not fila_usuario_historial.empty:
+                            for col in df_historial.columns:
+                                if " (Entrada)" in col:
+                                    col_base_fecha = col.replace(" (Entrada)", "")
+                                    col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
+                                    col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
+                                    col_salida_par = f"{col_base_fecha} (Salida)"
+                                    
+                                    if col_salida_par in df_historial.columns:
+                                        v_e = str(fila_usuario_historial.iloc[0][col]).strip()
+                                        v_rs = str(fila_usuario_historial.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df_historial.columns else ""
+                                        v_rr = str(fila_usuario_historial.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df_historial.columns else ""
+                                        v_s = str(fila_usuario_historial.iloc[0][col_salida_par]).strip()
+                                        
+                                        total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
+                        
+                        string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
+                        st.metric(label=f"Total neto acumulado en {pestana_busqueda.lower()}", value=string_acumulado_real)
+
+                        # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
+                        if not fila_usuario_historial.empty and "Meta" in df_historial.columns:
+                            try:
+                                meta_horas = float(fila_usuario_historial.iloc[0]["Meta"])
+                                if pd.isna(meta_horas) or meta_horas <= 0:
+                                    meta_horas = 0
+                            except ValueError:
+                                meta_horas = 0
+                            
+                            if meta_horas > 0:
+                                total_horas_mes = total_minutos_mes / 60.0
+                                porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
+                                st.write("")
+                                st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
+                                st.progress(porcentaje_avance)
+                                
+                                minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
+                                if minutos_restantes > 0:
+                                    st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
+                                else:
+                                    st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (VISIBLE PARA EL ADMIN CON REFRIGERIO)

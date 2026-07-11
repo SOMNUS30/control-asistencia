@@ -217,63 +217,122 @@ try:
 
             /* --- CONFIGURACIÓN PARA CELULAR - TOTALMENTE BLANCO Y PANTALLA COMPLETA --- */
             @media (max-width: 768px) {
+
                 .stMainBlockContainer, .block-container, .stApp {
+
                     padding: 0px !important;
+
                     margin: 0px !important;
+
                     max-width: 100% !important;
+
                     width: 100% !important;
+
                     background-color: #ffffff !important;
+
                 }
+
                 
+
                 div[data-testid="stElementContainer"], div[data-testid="stVerticalBlock"] {
+
                     padding: 0px !important;
+
                     margin: 0px !important;
+
                     width: 100% !important;
+
                 }
+
+
 
                 div[data-testid="stHorizontalBlock"] {
+
                     display: flex !important;
+
                     flex-direction: column !important;
+
                     background-color: #ffffff !important;
+
                     background-image: none !important;
+
                     width: 100% !important;
+
                     min-height: 100vh !important;
+
                     margin: 0px !important;
+
                     padding: 0px !important;
+
                     gap: 0px !important;
+
                     border: none !important;
+
                     border-radius: 0px !important;
+
                     box-shadow: none !important;
+
                 }
+
+
 
                 div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+
                     display: none !important;
+
                 }
+
+
 
                 div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+
                     padding: 80px 24px 40px 24px !important;
+
                     background-color: #ffffff !important;
+
                     width: 100% !important;
+
                     display: flex !important;
+
                     flex-direction: column !important;
+
                     justify-content: center !important;
+
                 }
 
+
+
                 div[data-testid="stVerticalBlock"] > div {
+
                     background-color: transparent !important;
+
                     box-shadow: none !important;
+
                     padding: 0px !important;
+
                     border: none !important;
+
                 }
+
                 
+
                 div[data-testid="stHorizontalBlock"] h2 {
+
                     font-size: 32px !important;
+
                     font-weight: 700 !important;
+
                     color: #2f3542 !important;
+
                     text-align: center !important;
+
                     margin-bottom: 30px !important;
+
                 }
-            }
+
+            } 
+
+
             </style>
         """, unsafe_allow_html=True)
 

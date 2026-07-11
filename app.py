@@ -352,6 +352,19 @@ try:
                 
                 st.write("") 
                 
+                # Inyección local segura para forzar el color azul en este botón específico
+                st.markdown("""
+                    <style>
+                    div.stButton > button {
+                        background-color: #007bff !important;
+                        color: white !important;
+                        border-radius: 8px !important;
+                        border: none !important;
+                        font-weight: bold !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+                
                 if st.button("INICIAR SESIÓN", use_container_width=True):
                     df["Codigo"] = df["Codigo"].astype(str).str.split('.').str[0].str.strip()
                     codigo_ingresado = str(codigo_ingresado).strip()

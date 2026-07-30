@@ -686,7 +686,7 @@ try:
                     
                     if not df_admin.empty:
                         # Vistas separadas para Diario y Mensual
-                        subtab_diario, subtab_mensual = st.tabs(["📅 Reporte Diario", "📊 Total Acumulado del Mes"])
+                        subtab_diario, subtab_mensual = st.tabs(["Reporte Diario", "Total Acumulado del Mes"])
                         
                         # --- SUBPESTAÑA 1: REPORTE DIARIO ORIGINAL ---
                         with subtab_diario:

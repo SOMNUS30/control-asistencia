@@ -684,33 +684,95 @@ try:
                     except Exception:
                         df_admin = pd.DataFrame()
                     
-                    if not df_admin.empty and col_hist_ent in df_admin.columns and col_hist_sal in df_admin.columns:
-                        df_reporte_raw = []
-                        for idx, row in df_admin.iterrows():
-                            v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df_admin.columns else "Falta"
-                            v_rs = str(row[col_hist_ref_sal]).strip() if col_hist_ref_sal in df_admin.columns else "Falta"
-                            v_rr = str(row[col_hist_ref_ret]).strip() if col_hist_ref_ret in df_admin.columns else "Falta"
-                            v_s = str(row[col_hist_sal]).strip() if col_hist_sal in df_admin.columns else "Falta"
+                    if not df_admin.empty:
+                        # Vistas separadas para Diario y Mensual
+                        subtab_diario, subtab_mensual = st.tabs(["📅 Reporte Diario", "📊 Total Acumulado del Mes"])
+                        
+                        # --- SUBPESTAÑA 1: REPORTE DIARIO ORIGINAL ---
+                        with subtab_diario:
+                            if col_hist_ent in df_admin.columns and col_hist_sal in df_admin.columns:
+                                df_reporte_raw = []
+                                for idx, row in df_admin.iterrows():
+                                    v_e = str(row[col_hist_ent]).strip() if col_hist_ent in df_admin.columns else "Falta"
+                                    v_rs = str(row[col_hist_ref_sal]).strip() if col_hist_ref_sal in df_admin.columns else "Falta"
+                                    v_rr = str(row[col_hist_ref_ret]).strip() if col_hist_ref_ret in df_admin.columns else "Falta"
+                                    v_s = str(row[col_hist_sal]).strip() if col_hist_sal in df_admin.columns else "Falta"
+                                    
+                                    minutos_totales = calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
+                                    horas_netas_str = formatear_minutos_a_string(minutos_totales) if minutos_totales > 0 else "0 h 0 min"
+                                    
+                                    meta_individual = str(row["Meta"]).split('.')[0].strip() if "Meta" in df_admin.columns and not pd.isna(row["Meta"]) else "-"
+                                    
+                                    df_reporte_raw.append({
+                                        "Asesor": row["Usuario"],
+                                        "Meta (H)": meta_individual,
+                                        "Entrada": v_e,
+                                        "Inicio Ref": v_rs,
+                                        "Fin Ref": v_rr,
+                                        "Salida": v_s,
+                                        "Horas Netas": horas_netas_str
+                                    })
+                                    
+                                df_reporte_final = pd.DataFrame(df_reporte_raw)
+                                st.dataframe(df_reporte_final, use_container_width=True, hide_index=True)
+                            else:
+                                st.caption(f"No hay registros específicos de entrada/salida para el {fecha_formateada_busqueda} en la pestaña {pestana_admin}.")
+
+                        # --- SUBPESTAÑA 2: REPORTE TOTAL DEL MES DE TODOS LOS TRABAJADORES ---
+                        with subtab_mensual:
+                            st.markdown(f"###### Resumen Consolidado de Horas - {pestana_admin}")
+                            df_mensual_admin = []
                             
-                            minutos_totales = calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
-                            horas_netas_str = formatear_minutos_a_string(minutos_totales) if minutos_totales > 0 else "0 h 0 min"
+                            # Identificamos todas las columnas de entrada en la hoja del mes
+                            cols_entrada_mes = [c for c in df_admin.columns if " (Entrada)" in c]
                             
-                            meta_individual = str(row["Meta"]).split('.')[0].strip() if "Meta" in df_admin.columns and not pd.isna(row["Meta"]) else "-"
+                            for idx, row in df_admin.iterrows():
+                                asesor_nombre = row["Usuario"]
+                                total_minutos_asesor = 0
+                                dias_trabajados = 0
+                                
+                                # Iteramos por cada día registrado en el mes para este asesor
+                                for col_ent in cols_entrada_mes:
+                                    col_base = col_ent.replace(" (Entrada)", "")
+                                    c_rs = f"{col_base} (Inicio Ref)"
+                                    c_rr = f"{col_base} (Fin Ref)"
+                                    c_sal = f"{col_base} (Salida)"
+                                    
+                                    if c_sal in df_admin.columns:
+                                        val_e = str(row[col_ent]).strip()
+                                        val_rs = str(row[c_rs]).strip() if c_rs in df_admin.columns else ""
+                                        val_rr = str(row[c_rr]).strip() if c_rr in df_admin.columns else ""
+                                        val_s = str(row[c_sal]).strip()
+                                        
+                                        min_dia = calcular_minutos_netos_raw(val_e, val_rs, val_rr, val_s)
+                                        if min_dia > 0:
+                                            total_minutos_asesor += min_dia
+                                            dias_trabajados += 1
+                                
+                                # Lectura y cálculo de meta
+                                meta_val = 0
+                                if "Meta" in df_admin.columns and not pd.isna(row["Meta"]):
+                                    try:
+                                        meta_val = float(str(row["Meta"]).strip())
+                                    except ValueError:
+                                        meta_val = 0
+                                
+                                total_horas_num = total_minutos_asesor / 60.0
+                                porcentaje_cumplimiento = f"{(total_horas_num / meta_val * 100):.1f}%" if meta_val > 0 else "N/A"
+                                
+                                df_mensual_admin.append({
+                                    "Asesor / Trabajador": asesor_nombre,
+                                    "Días Asistidos": dias_trabajados,
+                                    "Horas Totales Mes": formatear_minutos_a_string(total_minutos_asesor),
+                                    "Meta Mes (H)": f"{meta_val:.0f} h" if meta_val > 0 else "-",
+                                    "% Cumplimiento": porcentaje_cumplimiento
+                                })
                             
-                            df_reporte_raw.append({
-                                "Asesor": row["Usuario"],
-                                "Meta (H)": meta_individual,
-                                "Entrada": v_e,
-                                "Inicio Ref": v_rs,
-                                "Fin Ref": v_rr,
-                                "Salida": v_s,
-                                "Horas Netas": horas_netas_str
-                            })
-                            
-                        df_reporte_final = pd.DataFrame(df_reporte_raw)
-                        st.dataframe(df_reporte_final, use_container_width=True, hide_index=True)
+                            df_resumen_mes_final = pd.DataFrame(df_mensual_admin)
+                            st.dataframe(df_resumen_mes_final, use_container_width=True, hide_index=True)
+
                     else:
-                        st.caption(f"No hay datos registrados en la pestaña {pestana_admin} para el {fecha_formateada_busqueda}.")
+                        st.caption(f"No hay datos registrados en la pestaña de {pestana_admin}.")
 
         # Botón para salir de la app
         st.write("")

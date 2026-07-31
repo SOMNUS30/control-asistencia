@@ -73,14 +73,23 @@ try:
     
     # Conexión directa con tu ID de Google Sheets
     hoja_calculo = gc.open_by_key('1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU')
-    
+
+    # FUNCIÓN CON CACHÉ PARA EVITAR AGOTAR LA API DE GOOGLE (SOLUCIONA EL ERROR 429)
+    @st.cache_data(ttl=60)
+    def cargar_datos_pestana(pestana_nombre):
+        try:
+            wks_local = hoja_calculo.worksheet(pestana_nombre)
+            return get_as_dataframe(wks_local).dropna(how="all").dropna(axis=1, how="all")
+        except Exception:
+            return pd.DataFrame()
+
     # Detectar el mes actual automáticamente basándose en la hora de Perú
     hora_peru_actual = obtener_hora_peru()
     mes_actual_num = hora_peru_actual.month
     nombre_pestana = MESES_ESPANOL[mes_actual_num]
     
     wks = hoja_calculo.worksheet(nombre_pestana)
-    df = get_as_dataframe(wks).dropna(how="all").dropna(axis=1, how="all")
+    df = cargar_datos_pestana(nombre_pestana)
     
     # =========================================================
     # AUTOMATIZACIÓN DE FALTAS DIARIAS CON REFRIGERIO (Hora de Perú)
@@ -131,8 +140,8 @@ try:
             wks.update_cells(lista_celdas)
             
         # 4. Actualizamos el DataFrame interno de la app para que reconozca los nuevos cambios de inmediato
-        wks_actualizado = hoja_calculo.worksheet(nombre_pestana)
-        df = get_as_dataframe(wks_actualizado).dropna(how="all").dropna(axis=1, how="all")
+        st.cache_data.clear()
+        df = cargar_datos_pestana(nombre_pestana)
     # =========================================================
 
     if "autenticado" not in st.session_state:
@@ -448,6 +457,7 @@ try:
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_entrada] = hora_formateada
                     wks.clear()
                     set_with_dataframe(wks, df)
+                    st.cache_data.clear()  # <-- LÍNEA NUEVA
                     st.success(f"Entrada registrada: {hora_formateada}")
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
@@ -460,6 +470,7 @@ try:
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = "Permiso"
                     wks.clear()
                     set_with_dataframe(wks, df)
+                    st.cache_data.clear()  # <-- LÍNEA NUEVA
                     st.success("Permiso registrado.")
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
@@ -485,6 +496,7 @@ try:
                         df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_salida] = hora_formateada
                         wks.clear()
                         set_with_dataframe(wks, df)
+                        st.cache_data.clear()  # <-- LÍNEA NUEVA
                         st.success(f"Salida a refrigerio registrada: {hora_formateada}")
                         st.session_state.autenticado = False
                         st.session_state.usuario_actual = ""
@@ -497,6 +509,7 @@ try:
                         df.loc[df["Usuario"] == st.session_state.usuario_actual, col_ref_retorno] = hora_formateada
                         wks.clear()
                         set_with_dataframe(wks, df)
+                        st.cache_data.clear()  # <-- LÍNEA NUEVA
                         st.success(f"Retorno de refrigerio registrado: {hora_formateada}")
                         st.session_state.autenticado = False
                         st.session_state.usuario_actual = ""
@@ -511,6 +524,7 @@ try:
                     df.loc[df["Usuario"] == st.session_state.usuario_actual, col_salida] = hora_formateada
                     wks.clear()
                     set_with_dataframe(wks, df)
+                    st.cache_data.clear()  # <-- LÍNEA NUEVA
                     st.success(f"Salida registrada automáticamente: {hora_formateada}")
                     st.session_state.autenticado = False
                     st.session_state.usuario_actual = ""
@@ -529,12 +543,10 @@ try:
                         pestana_busqueda = MESES_ESPANOL[mes_busqueda_num]
                         
                         # Conectamos y leemos la pestaña exacta seleccionada en el calendario
-                        try:
-                            wks_historial = hoja_calculo.worksheet(pestana_busqueda)
-                            df_historial = get_as_dataframe(wks_historial).dropna(how="all").dropna(axis=1, how="all")
+                        df_historial = cargar_datos_pestana(pestana_busqueda)
+                        if not df_historial.empty and "Usuario" in df_historial.columns:
                             fila_usuario_historial = df_historial[df_historial["Usuario"] == st.session_state.usuario_actual]
-                        except Exception:
-                            df_historial = pd.DataFrame()
+                        else:
                             fila_usuario_historial = pd.DataFrame()
 
                         col_hist_ent = f"{fecha_formateada_busqueda} (Entrada)"
@@ -675,14 +687,11 @@ try:
                     col_hist_sal = f"{fecha_formateada_busqueda} (Salida)"
                     
                     # DINÁMICO: Cargamos los datos de la pestaña correspondiente para el Administrador
+                    # DINÁMICO: Cargamos los datos de la pestaña correspondiente usando la caché
                     mes_admin_num = fecha_busqueda_admin.month
                     pestana_admin = MESES_ESPANOL[mes_admin_num]
                     
-                    try:
-                        wks_admin = hoja_calculo.worksheet(pestana_admin)
-                        df_admin = get_as_dataframe(wks_admin).dropna(how="all").dropna(axis=1, how="all")
-                    except Exception:
-                        df_admin = pd.DataFrame()
+                    df_admin = cargar_datos_pestana(pestana_admin)
                     
                     if not df_admin.empty:
                         # Vistas separadas para Diario y Mensual

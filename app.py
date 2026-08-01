@@ -97,18 +97,23 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Lista de modelos con cuota activa en tu panel (probamos formatos de nombre válidos)
-        modelos_a_probar = [
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-latest"
-        ]
+        # 1. Consultamos los modelos disponibles dinámicamente en tu cuenta
+        modelos_disponibles = []
+        try:
+            for m in client.models.list():
+                # Filtramos modelos que soporten generación de contenido (visión/texto)
+                name = m.name if hasattr(m, 'name') else str(m)
+                if "flash" in name.lower() or "gemini" in name.lower():
+                    modelos_disponibles.append(name)
+        except Exception:
+            # Fallback manual en caso de que list() falle
+            modelos_disponibles = ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "gemini-1.5-flash"]
 
         response = None
-        error_ultimo = None
+        ultimo_error = None
 
-        for mod in modelos_a_probar:
+        # 2. Intentamos realizar la consulta con los modelos encontrados
+        for mod in modelos_disponibles:
             try:
                 response = client.models.generate_content(
                     model=mod,
@@ -117,11 +122,11 @@ def analizar_historial_tiktok(imagen_bytes):
                 if response and response.text:
                     break
             except Exception as e:
-                error_ultimo = e
+                ultimo_error = e
                 continue
 
         if not response or not response.text:
-            raise Exception(f"Ningún modelo respondió. Último error: {error_ultimo}")
+            raise Exception(f"Modelos probados: {modelos_disponibles[:3]}. Último error: {ultimo_error}")
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):

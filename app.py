@@ -97,9 +97,9 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Usamos exactamente el nombre del modelo que tu panel muestra activo con cuota
+        # Usamos el string exacto gemini-2.5-flash
         response = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-2.5-flash",
             contents=[imagen_pil, prompt]
         )
 

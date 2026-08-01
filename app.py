@@ -98,8 +98,8 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Cambio realizado aquí para resolver el 404
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # Usamos el nombre del modelo compatible con tu versión de API
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content([prompt, imagen_pil])
 
         texto_limpio = response.text.strip()

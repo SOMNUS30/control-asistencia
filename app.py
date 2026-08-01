@@ -8,8 +8,7 @@ from streamlit_geolocation import streamlit_geolocation
 import io
 import json
 from PIL import Image
-import google.generativeai as genai
-
+from google import genai
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
 LON_OBJETIVO = -75.7399245

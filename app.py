@@ -9,7 +9,7 @@ import io
 import json
 import base64
 from PIL import Image
-from openai import OpenAI
+from google import genai
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
 LON_OBJETIVO = -75.7399245
@@ -66,14 +66,12 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        # Usamos la librería cliente de OpenAI apuntando al servidor de OpenRouter
-        api_key_val = str(st.secrets["OPENROUTER_API_KEY"]).strip()
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key_val,
-        )
+        # 1. Limpiamos la clave del Secret de Streamlit Cloud
+        api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
 
-        base64_image = base64.b64encode(imagen_bytes).decode('utf-8')
+        # 2. Inicializamos el cliente oficial de Google
+        client = genai.Client(api_key=api_key_val)
+        imagen_pil = Image.open(io.BytesIO(imagen_bytes))
 
         prompt = """
         Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
@@ -98,39 +96,24 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Usamos el modelo de visión 100% gratuito de Gemini alojado en OpenRouter
-        completion = client.chat.completions.create(
-            model="qwen/qwen-2-vl-7b-instruct:free",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            },
-                        },
-                    ],
-                }
-            ],
-            response_format={"type": "json_object"}
+        # 3. Llamada al modelo oficial de Gemini
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[imagen_pil, prompt]
         )
 
-        texto_respuesta = completion.choices[0].message.content.strip()
+        texto_limpio = response.text.strip()
+        if texto_limpio.startswith("```json"):
+            texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
+        elif texto_limpio.startswith("```"):
+            texto_limpio = texto_limpio.replace("```", "").strip()
 
-        if texto_respuesta.startswith("```json"):
-            texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
-        elif texto_respuesta.startswith("```"):
-            texto_respuesta = texto_respuesta.replace("```", "").strip()
-
-        return json.loads(texto_respuesta)
+        return json.loads(texto_limpio)
 
     except Exception as e:
         return {
             "valido": False,
-            "motivo_error": f"Error al procesar la imagen con OpenRouter: {e}"
+            "motivo_error": f"Error al procesar la imagen con la IA: {e}"
         }
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     fmt = "%I:%M %p"

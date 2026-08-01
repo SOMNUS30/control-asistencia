@@ -859,7 +859,9 @@ try:
                                         # Asegurar columna de fecha
                                         if col_fecha_tt not in df_tt.columns:
                                             df_tt[col_fecha_tt] = ""
-
+                                        # Forzar la columna a texto para evitar conflictos con float64
+                                        df_tt[col_fecha_tt] = df_tt[col_fecha_tt].astype(str)
+                           
                                         # Si el usuario no existe en la hoja de REPORTES TIKTOK, lo agregamos
                                         usr_act = st.session_state.usuario_actual
                                         cod_act = st.session_state.get("codigo_actual", "")

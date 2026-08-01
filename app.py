@@ -5,6 +5,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 import math
 from streamlit_geolocation import streamlit_geolocation
+import io
+import json
+from PIL import Image
+from google import genai
 
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
@@ -56,6 +60,72 @@ def formatear_minutos_a_string(minutos_totales):
     horas = minutos_totales // 60
     minutos = minutos_totales % 60
     return f"{horas} h {minutos} min"
+
+# =========================================================
+# FUNCIONES AUXILIARES PARA REPORTE TIKTOK LIVE
+# =========================================================
+def analizar_historial_tiktok(imagen_bytes):
+    try:
+        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        imagen_pil = Image.open(io.BytesIO(imagen_bytes))
+
+        prompt = """
+        Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
+        Debes responder ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin bloques de código markdown ```json).
+
+        Estructura requerida:
+        {
+          "valido": true,
+          "motivo_error": "",
+          "dia": "21",
+          "mes": "jul",
+          "transmisiones": [
+            {"inicio": "11:54 a. m.", "fin": "12:47 p. m."},
+            {"inicio": "4:13 p. m.", "fin": "7:18 p. m."},
+            {"inicio": "7:40 p. m.", "fin": "8:51 p. m."}
+          ]
+        }
+
+        REGLAS ESTRICTAS:
+        1. Comprueba la fecha de CADA bloque de transmisión visible en la captura. Si hay transmisiones de 2 o más días distintos (por ejemplo, 'jul 21' y 'jul 20'), establece "valido": false y "motivo_error": "La captura contiene transmisiones de días diferentes. Sube un reporte de un solo día."
+        2. Si la imagen no corresponde a un historial de TikTok Live, responde "valido": false y "motivo_error": "La imagen subida no parece ser un historial válido de TikTok Live."
+        3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[imagen_pil, prompt]
+        )
+
+        texto_limpio = response.text.strip()
+        if texto_limpio.startswith("```json"):
+            texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
+        elif texto_limpio.startswith("```"):
+            texto_limpio = texto_limpio.replace("```", "").strip()
+
+        return json.loads(texto_limpio)
+    except Exception as e:
+        return {
+            "valido": False,
+            "motivo_error": f"Error al procesar la imagen con la IA: {e}"
+        }
+
+def calcular_duracion_rango_tiktok(inicio_str, fin_str):
+    fmt = "%I:%M %p"
+    try:
+        i_clean = inicio_str.lower().replace("a. m.", "AM").replace("p. m.", "PM").replace(".", "").upper().strip()
+        f_clean = fin_str.lower().replace("a. m.", "AM").replace("p. m.", "PM").replace(".", "").upper().strip()
+
+        t_inicio = datetime.strptime(i_clean, fmt)
+        t_fin = datetime.strptime(f_clean, fmt)
+
+        if t_fin < t_inicio:
+            t_fin += timedelta(days=1)
+
+        diferencia = t_fin - t_inicio
+        return int(diferencia.total_seconds() / 60.0)
+    except Exception:
+        return 0
 
 # Configuracion de pagina con diseno responsivo y centrado sin emoticonos
 st.set_page_config(page_title="Control de Asistencia", page_icon=None, layout="centered")
@@ -383,6 +453,7 @@ try:
                     if not usuario_encontrado.empty:
                         st.session_state.autenticado = True
                         st.session_state.usuario_actual = usuario_encontrado.iloc[0]["Usuario"]
+                        st.session_state.codigo_actual = codigo_ingresado
                         st.rerun()
                     else:
                         st.error("Código incorrecto. Intente de nuevo.")
@@ -393,10 +464,10 @@ try:
         
         if es_admin:
             st.caption(f"Usuario: {st.session_state.usuario_actual} (Administrador)")
-            tab_marcado, tab_reporte = st.tabs(["Mi Marcado", "Reporte General"])
+            tab_marcado, tab_tiktok, tab_reporte = st.tabs(["Mi Marcado", "Reporte TikTok", "Reporte General"])
         else:
             st.caption(f"Usuario: {st.session_state.usuario_actual}")
-            tab_marcado, = st.tabs(["Mi Marcado"])
+            tab_marcado, tab_tiktok = st.tabs(["Mi Marcado", "Reporte TikTok"])
 
         fila_usuario = df[df["Usuario"] == st.session_state.usuario_actual]
         
@@ -669,6 +740,125 @@ try:
                                     st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
                                 else:
                                     st.success("¡Felicidades! Has completado tu meta de horas del mes.")
+
+        # =========================================================
+        # PESTAÑA NUEVA: REPORTE TIKTOK LIVE
+        # =========================================================
+        with tab_tiktok:
+            st.write("")
+            st.markdown("##### 📹 Cargar Captura de Historial TikTok Live")
+            st.caption("Sube la captura de pantalla de tu historial de en vivos. La IA extraerá los rangos del día y calculará la duración total.")
+
+            archivo_tt = st.file_uploader("Cargar captura de historial", type=["png", "jpg", "jpeg"], key="uploader_tiktok_historial")
+
+            if archivo_tt is not None:
+                bytes_tt = archivo_tt.getvalue()
+                col_img_tt, col_info_tt = st.columns([1, 1.2])
+
+                with col_img_tt:
+                    st.image(bytes_tt, caption="Captura subida", use_container_width=True)
+
+                with col_info_tt:
+                    if "res_tiktok_data" not in st.session_state or st.session_state.get("nombre_archivo_tt_actual") != archivo_tt.name:
+                        with st.spinner("Analizando historial y validando fechas con IA..."):
+                            data_analisis = analizar_historial_tiktok(bytes_tt)
+                            st.session_state.res_tiktok_data = data_analisis
+                            st.session_state.nombre_archivo_tt_actual = archivo_tt.name
+
+                    data_ia = st.session_state.res_tiktok_data
+
+                    if not data_ia.get("valido", False):
+                        st.error(f"❌ **Reporte rechazado:** {data_ia.get('motivo_error', 'Ocurrió un error al procesar la imagen.')}")
+                        if st.button("🔄 Volver a Intentar", use_container_width=True):
+                            st.session_state.pop("res_tiktok_data", None)
+                            st.session_state.pop("nombre_archivo_tt_actual", None)
+                            st.rerun()
+                    else:
+                        dia_detectado = str(data_ia.get("dia", "")).strip()
+                        mes_detectado = str(data_ia.get("mes", "")).capitalize().strip()
+                        transmisiones = data_ia.get("transmisiones", [])
+
+                        st.success(f" Validado: **{len(transmisiones)} Live(s)** detectado(s) para el **{dia_detectado} de {mes_detectado}**.")
+                        st.markdown("###### 🕒 Rangos de horas extraídos:")
+
+                        total_minutos_tiktok = 0
+                        for idx_live, live_item in enumerate(transmisiones, start=1):
+                            i_live = live_item.get("inicio", "")
+                            f_live = live_item.get("fin", "")
+                            dur_min = calcular_duracion_rango_tiktok(i_live, f_live)
+                            total_minutos_tiktok += dur_min
+                            
+                            hrs_l = dur_min // 60
+                            mins_l = dur_min % 60
+                            str_dur = f"{hrs_l}h {mins_l}m" if hrs_l > 0 else f"{mins_l} min"
+                            st.write(f"• **Live {idx_live}:** {i_live} - {f_live} (`{str_dur}`)")
+
+                        total_formateado_tt = formatear_minutos_a_string(total_minutos_tiktok)
+                        st.markdown("---")
+                        st.metric(label="⏱️ Tiempo Total Transmitido", value=total_formateado_tt)
+
+                        st.write("¿Los datos mostrados son correctos?")
+                        col_subir_tt, col_repetir_tt = st.columns(2)
+
+                        with col_subir_tt:
+                            if st.button("✅ Subir Reporte", use_container_width=True):
+                                with st.spinner("Guardando reporte en REPORTES TIKTOK..."):
+                                    try:
+                                        doc_tiktok = gc.open("REPORTES TIKTOK")
+                                        pestana_mes_tt = MESES_ESPANOL[obtener_hora_peru().month]
+
+                                        try:
+                                            wks_tt = doc_tiktok.worksheet(pestana_mes_tt)
+                                        except Exception:
+                                            wks_tt = doc_tiktok.add_worksheet(title=pestana_mes_tt, rows="100", cols="20")
+
+                                        df_tt = get_as_dataframe(wks_tt).dropna(how="all")
+                                        if df_tt.empty or "Usuario" not in df_tt.columns:
+                                            df_tt = pd.DataFrame(columns=["Usuario", "Codigo", "Meta"])
+
+                                        # Formato fecha columna: DD/MM/YYYY
+                                        anio_actual = obtener_hora_peru().strftime("%Y")
+                                        mes_num_str = obtener_hora_peru().strftime("%m")
+                                        col_fecha_tt = f"{dia_detectado.zfill(2)}/{mes_num_str}/{anio_actual}"
+
+                                        # Nos aseguramos de que existan las columnas fijas
+                                        for c_fija in ["Usuario", "Codigo", "Meta"]:
+                                            if c_fija not in df_tt.columns:
+                                                df_tt[c_fija] = ""
+
+                                        # Asegurar columna de fecha
+                                        if col_fecha_tt not in df_tt.columns:
+                                            df_tt[col_fecha_tt] = ""
+
+                                        # Si el usuario no existe en la hoja de REPORTES TIKTOK, lo agregamos
+                                        usr_act = st.session_state.usuario_actual
+                                        cod_act = st.session_state.get("codigo_actual", "")
+
+                                        if usr_act not in df_tt["Usuario"].values:
+                                            nueva_fila = {"Usuario": usr_act, "Codigo": cod_act, "Meta": "0"}
+                                            df_tt = pd.concat([df_tt, pd.DataFrame([nueva_fila])], ignore_index=True)
+
+                                        # Asignar el valor acumulado a la celda
+                                        df_tt.loc[df_tt["Usuario"] == usr_act, col_fecha_tt] = total_formateado_tt
+
+                                        wks_tt.clear()
+                                        set_with_dataframe(wks_tt, df_tt, resize=True)
+                                        st.cache_data.clear()
+
+                                        st.balloons()
+                                        st.success(f" Reporte de **{total_formateado_tt}** guardado con éxito para el día {col_fecha_tt}.")
+                                        st.session_state.pop("res_tiktok_data", None)
+                                        st.session_state.pop("nombre_archivo_tt_actual", None)
+                                        st.rerun()
+
+                                    except Exception as ex_tt:
+                                        st.error(f"Error al guardar en 'REPORTES TIKTOK': {ex_tt}")
+
+                        with col_repetir_tt:
+                            if st.button("🔄 Volver a Subir", use_container_width=True):
+                                st.session_state.pop("res_tiktok_data", None)
+                                st.session_state.pop("nombre_archivo_tt_actual", None)
+                                st.rerun()
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (VISIBLE PARA EL ADMIN CON REFRIGERIO)

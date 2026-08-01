@@ -69,7 +69,7 @@ def analizar_historial_tiktok(imagen_bytes):
         import io
         from PIL import Image
 
-        # Configuración explícita con la clave de tu proyecto
+        # Configuración explícita de la API Key
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         genai.configure(api_key=api_key_val)
 
@@ -98,13 +98,15 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Usamos el nombre del modelo compatible con tu versión de API
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        # Identificador estándar compatible
+        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content([prompt, imagen_pil])
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
-            texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
+            texto_limpio = (
+                texto_limpio.replace("```json", "").replace("```", "").strip()
+            )
         elif texto_limpio.startswith("```"):
             texto_limpio = texto_limpio.replace("```", "").strip()
 
@@ -112,7 +114,7 @@ def analizar_historial_tiktok(imagen_bytes):
     except Exception as e:
         return {
             "valido": False,
-            "motivo_error": f"Error al procesar la imagen con la IA: {e}"
+            "motivo_error": f"Error al procesar la imagen con la IA: {e}",
         }
 
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):

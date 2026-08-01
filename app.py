@@ -61,6 +61,21 @@ def formatear_minutos_a_string(minutos_totales):
     horas = minutos_totales // 60
     minutos = minutos_totales % 60
     return f"{horas} h {minutos} min"
+# Convierte formato string "X h Y min" a minutos numéricos para poder acumular
+def parsear_string_a_minutos(cadena_tiempo):
+    if str(cadena_tiempo).strip() in ["", "nan", "None", "0 h 0 min", "-", "0"]:
+        return 0
+    try:
+        cadena_clean = str(cadena_tiempo).replace("min", "").strip()
+        if "h" in cadena_clean:
+            partes = cadena_clean.split("h")
+            h = int(partes[0].strip())
+            m = int(partes[1].strip()) if len(partes) > 1 and partes[1].strip() != "" else 0
+            return (h * 60) + m
+        else:
+            return int(cadena_clean)
+    except Exception:
+        return 0
 
 # =========================================================
 # FUNCIONES AUXILIARES PARA REPORTE TIKTOK LIVE
@@ -853,22 +868,29 @@ try:
                                             nueva_fila = {"Usuario": usr_act, "Codigo": cod_act, "Meta": "0"}
                                             df_tt = pd.concat([df_tt, pd.DataFrame([nueva_fila])], ignore_index=True)
 
-                                        # Asignar el valor acumulado a la celda
-                                        df_tt.loc[df_tt["Usuario"] == usr_act, col_fecha_tt] = total_formateado_tt
+                                        
+                                        # --- SUMA ACUMULATIVA AUTOMÁTICA ---
+                                        val_existente = df_tt.loc[df_tt["Usuario"] == usr_act, col_fecha_tt].values[0]
+                                        minutos_previos = parsear_string_a_minutos(val_existente)
+                                        
+                                        minutos_totales_dia = minutos_previos + total_minutos_tiktok
+                                        total_acumulado_final_str = formatear_minutos_a_string(minutos_totales_dia)
+
+                                        # Guardamos la suma acumulada en la celda del Sheets
+                                        df_tt.loc[df_tt["Usuario"] == usr_act, col_fecha_tt] = total_acumulado_final_str
 
                                         wks_tt.clear()
                                         set_with_dataframe(wks_tt, df_tt, resize=True)
                                         st.cache_data.clear()
 
                                         st.balloons()
-                                        st.success(f" Reporte de **{total_formateado_tt}** guardado con éxito en la pestaña **{pestana_mes_tt}** para el día {col_fecha_tt}.")
+                                        st.success(f" Reporte de **{total_formateado_tt}** agregado con éxito. Total acumulado del día: **{total_acumulado_final_str}** en la pestaña **{pestana_mes_tt}**.")
                                         
                                         # LIMPIEZA COMPLETA: borra datos de sesión e incrementa key para vaciar el file_uploader
                                         st.session_state.pop("res_tiktok_data", None)
                                         st.session_state.pop("id_archivo_tt_actual", None)
                                         st.session_state.uploader_key += 1
                                         st.rerun()
-
                                     except Exception as ex_tt:
                                         st.error(f"Error al guardar en 'REPORTES TIKTOK': {ex_tt}")
 

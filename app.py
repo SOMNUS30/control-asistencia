@@ -66,11 +66,13 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        # 1. Obtenemos la clave de los Secrets de Streamlit
-        api_key_val = str(st.secrets["GROQ_API_KEY"]).strip()
-        client = Groq(api_key=api_key_val)
+        # Usamos la librería cliente de OpenAI apuntando al servidor de OpenRouter
+        api_key_val = str(st.secrets["OPENROUTER_API_KEY"]).strip()
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key_val,
+        )
 
-        # 2. Convertimos la imagen a base64 para enviarla a Groq
         base64_image = base64.b64encode(imagen_bytes).decode('utf-8')
 
         prompt = """
@@ -96,9 +98,9 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # 3. Consulta al modelo de visión activo de Groq
+        # Usamos el modelo de visión 100% gratuito de Gemini alojado en OpenRouter
         completion = client.chat.completions.create(
-            model="llama-3.2-11b-vision-instruct",
+            model="google/gemini-2.0-flash-exp:free",
             messages=[
                 {
                     "role": "user",
@@ -113,13 +115,11 @@ def analizar_historial_tiktok(imagen_bytes):
                     ],
                 }
             ],
-            temperature=0.1,
             response_format={"type": "json_object"}
         )
 
         texto_respuesta = completion.choices[0].message.content.strip()
 
-        # Limpieza defensiva por si el modelo incluye etiquetas markdown
         if texto_respuesta.startswith("```json"):
             texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
         elif texto_respuesta.startswith("```"):
@@ -130,7 +130,7 @@ def analizar_historial_tiktok(imagen_bytes):
     except Exception as e:
         return {
             "valido": False,
-            "motivo_error": f"Error al procesar la imagen con Groq: {e}"
+            "motivo_error": f"Error al procesar la imagen con OpenRouter: {e}"
         }
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     fmt = "%I:%M %p"

@@ -100,7 +100,7 @@ def analizar_historial_tiktok(imagen_bytes):
 
         # Usamos el modelo de visión 100% gratuito de Gemini alojado en OpenRouter
         completion = client.chat.completions.create(
-            model="meta-llama/llama-3.2-11b-vision-instruct:free",
+            model="qwen/qwen-2-vl-7b-instruct:free",
             messages=[
                 {
                     "role": "user",

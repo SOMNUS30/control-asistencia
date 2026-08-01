@@ -7,8 +7,9 @@ import math
 from streamlit_geolocation import streamlit_geolocation
 import io
 import json
+import base64
 from PIL import Image
-from google import genai
+from groq import Groq
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
 LON_OBJETIVO = -75.7399245
@@ -65,16 +66,12 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        import io
-        from PIL import Image
-        from google import genai
+        # 1. Obtenemos la clave de los Secrets de Streamlit
+        api_key_val = str(st.secrets["GROQ_API_KEY"]).strip()
+        client = Groq(api_key=api_key_val)
 
-        # Limpiamos la clave del Secret
-        api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
-
-        # Cliente oficial google-genai
-        client = genai.Client(api_key=api_key_val)
-        imagen_pil = Image.open(io.BytesIO(imagen_bytes))
+        # 2. Convertimos la imagen a base64 para enviarla a Groq
+        base64_image = base64.b64encode(imagen_bytes).decode('utf-8')
 
         prompt = """
         Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
@@ -99,23 +96,41 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Usamos el modelo v1beta totalmente soportado
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[imagen_pil, prompt]
+        # 3. Consulta al modelo de visión de Groq
+        completion = client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            },
+                        },
+                    ],
+                }
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"}
         )
 
-        texto_limpio = response.text.strip()
-        if texto_limpio.startswith("```json"):
-            texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
-        elif texto_limpio.startswith("```"):
-            texto_limpio = texto_limpio.replace("```", "").strip()
+        texto_respuesta = completion.choices[0].message.content.strip()
 
-        return json.loads(texto_limpio)
+        # Limpieza defensiva por si el modelo incluye etiquetas markdown
+        if texto_respuesta.startswith("```json"):
+            texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
+        elif texto_respuesta.startswith("```"):
+            texto_respuesta = texto_respuesta.replace("```", "").strip()
+
+        return json.loads(texto_respuesta)
+
     except Exception as e:
         return {
             "valido": False,
-            "motivo_error": f"Error al procesar la imagen con la IA: {e}"
+            "motivo_error": f"Error al procesar la imagen con Groq: {e}"
         }
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     fmt = "%I:%M %p"

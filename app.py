@@ -8,7 +8,7 @@ from streamlit_geolocation import streamlit_geolocation
 import io
 import json
 from PIL import Image
-from google import genai
+import google.generativeai as genai
 
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
@@ -66,9 +66,12 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        # Aseguramos la lectura limpia de la clave
+        import io
+        from PIL import Image
+
+        # Configuración explícita con la librería clásica google-generativeai
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
-        client = genai.Client(api_key=api_key_val)
+        genai.configure(api_key=api_key_val)
 
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
 
@@ -95,10 +98,8 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[imagen_pil, prompt]
-        )
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content([prompt, imagen_pil])
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):

@@ -72,7 +72,7 @@ def analizar_historial_tiktok(imagen_bytes):
         # Limpiamos la clave del Secret
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
 
-        # Usamos el cliente oficial actualizado
+        # Cliente oficial actualizado
         client = genai.Client(api_key=api_key_val)
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
 
@@ -99,9 +99,9 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Modelo oficial actualizado para la librería google-genai
+        # Usamos el modelo estándar y disponible gemini-1.5-flash
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=[imagen_pil, prompt]
         )
 

@@ -10,6 +10,7 @@ import json
 import base64
 from PIL import Image
 from google import genai
+
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
 LON_OBJETIVO = -75.7399245
@@ -141,6 +142,7 @@ def analizar_historial_tiktok(imagen_bytes):
             "valido": False,
             "motivo_error": f"Error al procesar la imagen con la IA: {e}"
         }
+
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     fmt = "%I:%M %p"
     try:
@@ -166,6 +168,22 @@ MESES_ESPANOL = {
     1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
     5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
     9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+}
+
+# Mapeo auxiliar de abreviaturas que devuelve TikTok en la IA a su número de mes
+MESES_TEXTO_A_NUM = {
+    "ene": 1, "enero": 1,
+    "feb": 2, "febrero": 2,
+    "mar": 3, "marzo": 3,
+    "abr": 4, "abril": 4,
+    "may": 5, "mayo": 5,
+    "jun": 6, "junio": 6,
+    "jul": 7, "julio": 7,
+    "ago": 8, "agosto": 8,
+    "sep": 9, "septiembre": 9, "setiembre": 9,
+    "oct": 10, "octubre": 10,
+    "nov": 11, "noviembre": 11,
+    "dic": 12, "diciembre": 12
 }
 
 try:
@@ -723,57 +741,9 @@ try:
                                     st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
                                 else:
                                     st.success("¡Felicidades! Has completado tu meta de horas del mes.")
-                        
-                        # =========================================================
-                        # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
-                        # =========================================================
-                        st.markdown("---")
-                        st.markdown(f"##### Resumen Mensual ({pestana_busqueda})")
-                        
-                        total_minutos_mes = 0
-                        if not fila_usuario_historial.empty:
-                            for col in df_historial.columns:
-                                if " (Entrada)" in col:
-                                    col_base_fecha = col.replace(" (Entrada)", "")
-                                    col_r_sal_par = f"{col_base_fecha} (Inicio Ref)"
-                                    col_r_ret_par = f"{col_base_fecha} (Fin Ref)"
-                                    col_salida_par = f"{col_base_fecha} (Salida)"
-                                    
-                                    if col_salida_par in df_historial.columns:
-                                        v_e = str(fila_usuario_historial.iloc[0][col]).strip()
-                                        v_rs = str(fila_usuario_historial.iloc[0][col_r_sal_par]).strip() if col_r_sal_par in df_historial.columns else ""
-                                        v_rr = str(fila_usuario_historial.iloc[0][col_r_ret_par]).strip() if col_r_ret_par in df_historial.columns else ""
-                                        v_s = str(fila_usuario_historial.iloc[0][col_salida_par]).strip()
-                                        
-                                        total_minutos_mes += calcular_minutos_netos_raw(v_e, v_rs, v_rr, v_s)
-                        
-                        string_acumulado_real = formatear_minutos_a_string(total_minutos_mes)
-                        st.metric(label=f"Total neto acumulado en {pestana_busqueda.lower()}", value=string_acumulado_real)
-
-                        # Lógica de barra de progreso basada en la columna 'Meta' de Google Sheets
-                        if not fila_usuario_historial.empty and "Meta" in df_historial.columns:
-                            try:
-                                meta_horas = float(fila_usuario_historial.iloc[0]["Meta"])
-                                if pd.isna(meta_horas) or meta_horas <= 0:
-                                    meta_horas = 0
-                            except ValueError:
-                                meta_horas = 0
-                            
-                            if meta_horas > 0:
-                                total_horas_mes = total_minutos_mes / 60.0
-                                porcentaje_avance = min(1.0, total_horas_mes / meta_horas)
-                                st.write("")
-                                st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance*100:.1f}%** ({string_acumulado_real} / {meta_horas:.0f} h)")
-                                st.progress(porcentaje_avance)
-                                
-                                minutos_restantes = int((meta_horas * 60) - total_minutos_mes)
-                                if minutos_restantes > 0:
-                                    st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes)}** para cumplir tu meta del mes.")
-                                else:
-                                    st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
         # =========================================================
-        # PESTAÑA NUEVA: REPORTE TIKTOK LIVE
+        # PESTAÑA NUEVA: REPORTE TIKTOK LIVE (OPTIMIZADO CON CACHÉ Y MES REAL)
         # =========================================================
         with tab_tiktok:
             st.write("")
@@ -790,11 +760,14 @@ try:
                     st.image(bytes_tt, caption="Captura subida", use_container_width=True)
 
                 with col_info_tt:
-                    if "res_tiktok_data" not in st.session_state or st.session_state.get("nombre_archivo_tt_actual") != archivo_tt.name:
+                    # ID ÚNICO DE ARCHIVO: Evita volver a llamar a la API si el usuario solo hace clic en botones
+                    id_archivo_actual = f"{archivo_tt.name}_{len(bytes_tt)}"
+
+                    if "res_tiktok_data" not in st.session_state or st.session_state.get("id_archivo_tt_actual") != id_archivo_actual:
                         with st.spinner("Analizando historial y validando fechas con IA..."):
                             data_analisis = analizar_historial_tiktok(bytes_tt)
                             st.session_state.res_tiktok_data = data_analisis
-                            st.session_state.nombre_archivo_tt_actual = archivo_tt.name
+                            st.session_state.id_archivo_tt_actual = id_archivo_actual
 
                     data_ia = st.session_state.res_tiktok_data
 
@@ -802,11 +775,12 @@ try:
                         st.error(f"❌ **Reporte rechazado:** {data_ia.get('motivo_error', 'Ocurrió un error al procesar la imagen.')}")
                         if st.button("🔄 Volver a Intentar", use_container_width=True):
                             st.session_state.pop("res_tiktok_data", None)
-                            st.session_state.pop("nombre_archivo_tt_actual", None)
+                            st.session_state.pop("id_archivo_tt_actual", None)
                             st.rerun()
                     else:
                         dia_detectado = str(data_ia.get("dia", "")).strip()
-                        mes_detectado = str(data_ia.get("mes", "")).capitalize().strip()
+                        mes_detectado_raw = str(data_ia.get("mes", "")).lower().strip()
+                        mes_detectado = mes_detectado_raw.capitalize()
                         transmisiones = data_ia.get("transmisiones", [])
 
                         st.success(f" Validado: **{len(transmisiones)} Live(s)** detectado(s) para el **{dia_detectado} de {mes_detectado}**.")
@@ -836,7 +810,10 @@ try:
                                 with st.spinner("Guardando reporte en REPORTES TIKTOK..."):
                                     try:
                                         doc_tiktok = gc.open("REPORTES TIKTOK")
-                                        pestana_mes_tt = MESES_ESPANOL[obtener_hora_peru().month]
+
+                                        # RESOLUCIÓN DEL MES SEGÚN LA IA (EJ: JULIO EN LUGAR DEL MES ACTUAL DEL SISTEMA)
+                                        num_mes_img = MESES_TEXTO_A_NUM.get(mes_detectado_raw, obtener_hora_peru().month)
+                                        pestana_mes_tt = MESES_ESPANOL[num_mes_img]
 
                                         try:
                                             wks_tt = doc_tiktok.worksheet(pestana_mes_tt)
@@ -847,10 +824,9 @@ try:
                                         if df_tt.empty or "Usuario" not in df_tt.columns:
                                             df_tt = pd.DataFrame(columns=["Usuario", "Codigo", "Meta"])
 
-                                        # Formato fecha columna: DD/MM/YYYY
+                                        # Formato fecha columna basado en la IA: DD/MM/YYYY
                                         anio_actual = obtener_hora_peru().strftime("%Y")
-                                        mes_num_str = obtener_hora_peru().strftime("%m")
-                                        col_fecha_tt = f"{dia_detectado.zfill(2)}/{mes_num_str}/{anio_actual}"
+                                        col_fecha_tt = f"{dia_detectado.zfill(2)}/{num_mes_img:02d}/{anio_actual}"
 
                                         # Nos aseguramos de que existan las columnas fijas
                                         for c_fija in ["Usuario", "Codigo", "Meta"]:
@@ -877,9 +853,9 @@ try:
                                         st.cache_data.clear()
 
                                         st.balloons()
-                                        st.success(f" Reporte de **{total_formateado_tt}** guardado con éxito para el día {col_fecha_tt}.")
+                                        st.success(f" Reporte de **{total_formateado_tt}** guardado con éxito en la pestaña **{pestana_mes_tt}** para el día {col_fecha_tt}.")
                                         st.session_state.pop("res_tiktok_data", None)
-                                        st.session_state.pop("nombre_archivo_tt_actual", None)
+                                        st.session_state.pop("id_archivo_tt_actual", None)
                                         st.rerun()
 
                                     except Exception as ex_tt:
@@ -888,7 +864,7 @@ try:
                         with col_repetir_tt:
                             if st.button("🔄 Volver a Subir", use_container_width=True):
                                 st.session_state.pop("res_tiktok_data", None)
-                                st.session_state.pop("nombre_archivo_tt_actual", None)
+                                st.session_state.pop("id_archivo_tt_actual", None)
                                 st.rerun()
 
         # =========================================================

@@ -743,14 +743,22 @@ try:
                                     st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
         # =========================================================
-        # PESTAÑA NUEVA: REPORTE TIKTOK LIVE (OPTIMIZADO CON CACHÉ Y MES REAL)
+        # PESTAÑA NUEVA: REPORTE TIKTOK LIVE (OPTIMIZADO CON CONTROL DE REPETICIÓN)
         # =========================================================
         with tab_tiktok:
             st.write("")
             st.markdown("##### 📹 Cargar Captura de Historial TikTok Live")
             st.caption("Sube la captura de pantalla de tu historial de en vivos. La IA extraerá los rangos del día y calculará la duración total.")
 
-            archivo_tt = st.file_uploader("Cargar captura de historial", type=["png", "jpg", "jpeg"], key="uploader_tiktok_historial")
+            # Clave dinámica para reiniciar el file_uploader cuando se requiera
+            if "uploader_key" not in st.session_state:
+                st.session_state.uploader_key = 0
+
+            archivo_tt = st.file_uploader(
+                "Cargar captura de historial", 
+                type=["png", "jpg", "jpeg"], 
+                key=f"uploader_tiktok_historial_{st.session_state.uploader_key}"
+            )
 
             if archivo_tt is not None:
                 bytes_tt = archivo_tt.getvalue()
@@ -760,7 +768,6 @@ try:
                     st.image(bytes_tt, caption="Captura subida", use_container_width=True)
 
                 with col_info_tt:
-                    # ID ÚNICO DE ARCHIVO: Evita volver a llamar a la API si el usuario solo hace clic en botones
                     id_archivo_actual = f"{archivo_tt.name}_{len(bytes_tt)}"
 
                     if "res_tiktok_data" not in st.session_state or st.session_state.get("id_archivo_tt_actual") != id_archivo_actual:
@@ -776,6 +783,7 @@ try:
                         if st.button("🔄 Volver a Intentar", use_container_width=True):
                             st.session_state.pop("res_tiktok_data", None)
                             st.session_state.pop("id_archivo_tt_actual", None)
+                            st.session_state.uploader_key += 1
                             st.rerun()
                     else:
                         dia_detectado = str(data_ia.get("dia", "")).strip()
@@ -854,8 +862,11 @@ try:
 
                                         st.balloons()
                                         st.success(f" Reporte de **{total_formateado_tt}** guardado con éxito en la pestaña **{pestana_mes_tt}** para el día {col_fecha_tt}.")
+                                        
+                                        # LIMPIEZA COMPLETA: borra datos de sesión e incrementa key para vaciar el file_uploader
                                         st.session_state.pop("res_tiktok_data", None)
                                         st.session_state.pop("id_archivo_tt_actual", None)
+                                        st.session_state.uploader_key += 1
                                         st.rerun()
 
                                     except Exception as ex_tt:
@@ -865,6 +876,7 @@ try:
                             if st.button("🔄 Volver a Subir", use_container_width=True):
                                 st.session_state.pop("res_tiktok_data", None)
                                 st.session_state.pop("id_archivo_tt_actual", None)
+                                st.session_state.uploader_key += 1
                                 st.rerun()
 
         # =========================================================

@@ -4,5 +4,5 @@ gspread-dataframe
 pandas
 streamlit-js-eval
 streamlit-geolocation
-google-genai
+google-generativeai
 Pillow

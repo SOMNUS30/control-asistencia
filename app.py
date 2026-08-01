@@ -9,7 +9,7 @@ import io
 import json
 import base64
 from PIL import Image
-from groq import Groq
+from openai import OpenAI
 # Coordenadas del punto central requerido (Ica, Perú)
 LAT_OBJETIVO = -14.0780018
 LON_OBJETIVO = -75.7399245

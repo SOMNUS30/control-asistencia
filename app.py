@@ -66,10 +66,11 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        # 1. Limpiamos la clave del Secret de Streamlit Cloud
-        api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
+        import io
+        from PIL import Image
+        from google import genai
 
-        # 2. Inicializamos el cliente oficial de Google
+        api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         client = genai.Client(api_key=api_key_val)
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
 
@@ -96,9 +97,9 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # 3. Llamada al modelo oficial de Gemini
+        # Cambiamos a gemini-2.5-flash (donde tu tabla muestra que SÍ tienes cuota habilitada)
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[imagen_pil, prompt]
         )
 

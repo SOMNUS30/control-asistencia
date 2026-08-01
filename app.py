@@ -66,7 +66,10 @@ def formatear_minutos_a_string(minutos_totales):
 # =========================================================
 def analizar_historial_tiktok(imagen_bytes):
     try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        # Aseguramos la lectura limpia de la clave
+        api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
+        client = genai.Client(api_key=api_key_val)
+
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
 
         prompt = """

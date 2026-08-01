@@ -69,7 +69,7 @@ def analizar_historial_tiktok(imagen_bytes):
         import io
         from PIL import Image
 
-        # Configuración explícita con la librería clásica google-generativeai
+        # Configuración explícita con la clave de tu proyecto
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         genai.configure(api_key=api_key_val)
 
@@ -98,7 +98,8 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Cambio realizado aquí para resolver el 404
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content([prompt, imagen_pil])
 
         texto_limpio = response.text.strip()

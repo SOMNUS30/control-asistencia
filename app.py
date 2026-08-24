@@ -247,33 +247,18 @@ try:
         columnas_a_crear.append(col_salida)
         
     if columnas_a_crear:
-        # 1. Obtenemos el número de la última columna actual en el Sheets
         num_columnas_actuales = wks.col_count
         num_nuevas = len(columnas_a_crear)
         
-        # 2. Agregamos físicamente el espacio de columnas nuevas a la derecha en Google Sheets
+        # 1. Agregamos las columnas necesarias si excede el límite
         wks.add_cols(num_nuevas)
         
-        # 3. Preparamos los títulos y los valores por defecto ("Falta") para cada fila
-        num_filas = len(df) + 1  # Incluye la fila de encabezados
-        
-        for i, col_name in enumerate(columnas_a_crear):
-            col_index = num_columnas_actuales + i + 1
+        # 2. Agregamos las columnas en el DataFrame local
+        for c in columnas_a_crear:
+            df[c] = "Falta"
             
-            # Creamos una lista de celdas para actualizar de golpe esa columna completa
-            lista_celdas = wks.range(1, col_index, num_filas, col_index)
-            
-            # La primera celda es el encabezado (la fecha)
-            lista_celdas[0].value = col_name
-            
-            # El resto de celdas hacia abajo se llenan con "Falta"
-            for celda in lista_celdas[1:]:
-                celda.value = "Falta"
-                
-            # Enviamos la actualización de esa columna al Sheets de forma segura sin borrar nada
-            wks.update_cells(lista_celdas)
-            
-        # 4. Actualizamos el DataFrame interno de la app para que reconozca los nuevos cambios de inmediato
+        # 3. Guardamos todo el DataFrame de golpe en una sola petición (cero bloqueos)
+        set_with_dataframe(wks, df, resize=True)
         st.cache_data.clear()
         df = cargar_datos_pestana(nombre_pestana)
     # =========================================================

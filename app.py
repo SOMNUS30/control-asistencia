@@ -88,7 +88,12 @@ def analizar_historial_tiktok(imagen_bytes):
 
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         client = genai.Client(api_key=api_key_val)
+
+        # 1. Optimización de imagen (reduce drásticamente el peso y el tiempo de subida)
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
+        if imagen_pil.mode in ("RGBA", "P"):
+            imagen_pil = imagen_pil.convert("RGB")
+        imagen_pil.thumbnail((1000, 1000))
 
         prompt = """
         Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
@@ -113,36 +118,21 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # 1. Consultamos los modelos disponibles dinámicamente en tu cuenta
-        modelos_disponibles = []
-        try:
-            for m in client.models.list():
-                # Filtramos modelos que soporten generación de contenido (visión/texto)
-                name = m.name if hasattr(m, 'name') else str(m)
-                if "flash" in name.lower() or "gemini" in name.lower():
-                    modelos_disponibles.append(name)
-        except Exception:
-            # Fallback manual en caso de que list() falle
-            modelos_disponibles = ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "gemini-1.5-flash"]
-
+        # 2. Llamada directa y veloz a tus modelos activos (sin bucles lentos)
         response = None
-        ultimo_error = None
-
-        # 2. Intentamos realizar la consulta con los modelos encontrados
-        for mod in modelos_disponibles:
+        for modelo in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
             try:
                 response = client.models.generate_content(
-                    model=mod,
+                    model=modelo,
                     contents=[imagen_pil, prompt]
                 )
                 if response and response.text:
                     break
-            except Exception as e:
-                ultimo_error = e
+            except Exception:
                 continue
 
         if not response or not response.text:
-            raise Exception(f"Modelos probados: {modelos_disponibles[:3]}. Último error: {ultimo_error}")
+            raise Exception("No se recibió respuesta válida del modelo.")
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
@@ -157,7 +147,6 @@ def analizar_historial_tiktok(imagen_bytes):
             "valido": False,
             "motivo_error": f"Error al procesar la imagen con la IA: {e}"
         }
-
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     fmt = "%I:%M %p"
     try:

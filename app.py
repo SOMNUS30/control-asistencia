@@ -89,11 +89,11 @@ def analizar_historial_tiktok(imagen_bytes):
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         client = genai.Client(api_key=api_key_val)
 
-        # 1. Optimización de imagen (reduce drásticamente el peso y el tiempo de subida)
+        # 1. Optimización rápida de la imagen
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
         if imagen_pil.mode in ("RGBA", "P"):
             imagen_pil = imagen_pil.convert("RGB")
-        imagen_pil.thumbnail((1000, 1000))
+        imagen_pil.thumbnail((1024, 1024))
 
         prompt = """
         Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
@@ -118,21 +118,25 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # 2. Llamada directa y veloz a tus modelos activos (sin bucles lentos)
+        # 2. Modelos rápidos con fallback
+        modelos_rapidos = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
         response = None
-        for modelo in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+        ultimo_error = None
+
+        for modelo in modelos_rapidos:
             try:
                 response = client.models.generate_content(
                     model=modelo,
-                    contents=[imagen_pil, prompt]
+                    contents=[prompt, imagen_pil]
                 )
                 if response and response.text:
                     break
-            except Exception:
+            except Exception as ex_mod:
+                ultimo_error = ex_mod
                 continue
 
         if not response or not response.text:
-            raise Exception("No se recibió respuesta válida del modelo.")
+            raise Exception(f"Detalle del error: {ultimo_error}")
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):

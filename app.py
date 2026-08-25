@@ -80,6 +80,29 @@ def parsear_string_a_minutos(cadena_tiempo):
 # =========================================================
 # FUNCIONES AUXILIARES PARA REPORTE TIKTOK LIVE
 # =========================================================
+@st.cache_resource
+def obtener_modelo_activo_gemini(api_key_val):
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key_val)
+        # Prioridad de nombres de modelos según tu panel
+        preferidos = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+        modelos_disponibles = []
+        for m in client.models.list():
+            name = m.name if hasattr(m, 'name') else str(m)
+            # Solo modelos compatibles con contenido (evitamos audio/live)
+            if "flash" in name.lower() and not any(x in name.lower() for x in ["tts", "live", "audio", "embed"]):
+                modelos_disponibles.append(name)
+        
+        # Seleccionamos el mejor modelo disponible
+        for pref in preferidos:
+            for disp in modelos_disponibles:
+                if pref in disp:
+                    return disp
+        return modelos_disponibles[0] if modelos_disponibles else "gemini-2.5-flash"
+    except Exception:
+        return "gemini-2.5-flash"
+
 def analizar_historial_tiktok(imagen_bytes):
     try:
         import io
@@ -88,8 +111,8 @@ def analizar_historial_tiktok(imagen_bytes):
 
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         client = genai.Client(api_key=api_key_val)
-
-        # 1. Optimización rápida de la imagen
+        
+        # 1. Optimización rápida de la imagen (mantiene nitidez pero viaja en 1s)
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
         if imagen_pil.mode in ("RGBA", "P"):
             imagen_pil = imagen_pil.convert("RGB")
@@ -118,25 +141,16 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae exactamente las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # 2. Modelos rápidos con fallback
-        modelos_rapidos = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
-        response = None
-        ultimo_error = None
+        # 2. Obtenemos el modelo activo sin retrasos
+        modelo_seleccionado = obtener_modelo_activo_gemini(api_key_val)
 
-        for modelo in modelos_rapidos:
-            try:
-                response = client.models.generate_content(
-                    model=modelo,
-                    contents=[prompt, imagen_pil]
-                )
-                if response and response.text:
-                    break
-            except Exception as ex_mod:
-                ultimo_error = ex_mod
-                continue
+        response = client.models.generate_content(
+            model=modelo_seleccionado,
+            contents=[imagen_pil, prompt]
+        )
 
         if not response or not response.text:
-            raise Exception(f"Detalle del error: {ultimo_error}")
+            raise Exception("No se recibió respuesta del modelo.")
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):

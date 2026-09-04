@@ -209,6 +209,16 @@ try:
             return get_as_dataframe(wks_local).dropna(how="all").dropna(axis=1, how="all")
         except Exception:
             return pd.DataFrame()
+            
+    # FUNCIÓN CON CACHÉ PARA LEER PESTAÑAS DE REPORTES TIKTOK
+    @st.cache_data(ttl=60)
+    def cargar_datos_pestana_tiktok(pestana_nombre):
+        try:
+            doc_tt = gc.open("REPORTES TIKTOK")
+            wks_tt_local = doc_tt.worksheet(pestana_nombre)
+            return get_as_dataframe(wks_tt_local).dropna(how="all").dropna(axis=1, how="all")
+        except Exception:
+            return pd.DataFrame()
 
     # Detectar el mes actual automáticamente basándose en la hora de Perú
     hora_peru_actual = obtener_hora_peru()
@@ -880,6 +890,80 @@ try:
                                 st.session_state.pop("id_archivo_tt_actual", None)
                                 st.session_state.uploader_key += 1
                                 st.rerun()
+                        # =========================================================
+            # SECCIÓN: CONSULTAR HISTORIAL DE REPORTES TIKTOK
+            # =========================================================
+            st.write("")
+            with st.container(): 
+                with st.expander("Consultar mis reportes de TikTok"):
+                    fecha_busqueda_tt = st.date_input("Selecciona fecha:", value=obtener_hora_peru().date(), key="cal_asesor_tiktok")
+                    if fecha_busqueda_tt:
+                        fecha_formateada_busqueda_tt = fecha_busqueda_tt.strftime("%d/%m/%Y")
+                        
+                        # DINÁMICO: Detectamos qué pestaña del Sheets corresponde al mes de la fecha buscada
+                        mes_busqueda_num_tt = fecha_busqueda_tt.month
+                        pestana_busqueda_tt = MESES_ESPANOL[mes_busqueda_num_tt]
+                        
+                        # Conectamos y leemos la pestaña exacta seleccionada en el archivo REPORTES TIKTOK
+                        df_historial_tt = cargar_datos_pestana_tiktok(pestana_busqueda_tt)
+                        if not df_historial_tt.empty and "Usuario" in df_historial_tt.columns:
+                            fila_usuario_historial_tt = df_historial_tt[df_historial_tt["Usuario"] == st.session_state.usuario_actual]
+                        else:
+                            fila_usuario_historial_tt = pd.DataFrame()
+
+                        col_hist_tt = fecha_formateada_busqueda_tt
+                        
+                        if not fila_usuario_historial_tt.empty and col_hist_tt in df_historial_tt.columns:
+                            val_tt = str(fila_usuario_historial_tt.iloc[0][col_hist_tt]).strip()
+                            if val_tt in ["", "nan", "None", "-"]:
+                                val_tt = "0 h 0 min"
+                            
+                            df_individual_tt = pd.DataFrame({
+                                "Fecha": [fecha_formateada_busqueda_tt],
+                                "Horas Transmitidas": [val_tt]
+                            })
+                            st.dataframe(df_individual_tt, use_container_width=True, hide_index=True)
+                        else:
+                            st.caption(f"Sin registros para esta fecha en la pestaña de {pestana_busqueda_tt}.")
+                        
+                        # =========================================================
+                        # CÁLCULO MENSUAL NETO EN FORMATO REAL H/MIN Y META INDIVIDUAL
+                        # =========================================================
+                        st.markdown("---")
+                        st.markdown(f"##### Resumen Mensual ({pestana_busqueda_tt})")
+                        
+                        total_minutos_mes_tt = 0
+                        if not fila_usuario_historial_tt.empty:
+                            # Sumamos todas las columnas que corresponden a fechas (DD/MM/YYYY)
+                            columnas_dias = [c for c in df_historial_tt.columns if c not in ["Usuario", "Codigo", "Meta"]]
+                            for col in columnas_dias:
+                                val_dia_str = str(fila_usuario_historial_tt.iloc[0][col]).strip()
+                                total_minutos_mes_tt += parsear_string_a_minutos(val_dia_str)
+                        
+                        string_acumulado_real_tt = formatear_minutos_a_string(total_minutos_mes_tt)
+                        st.metric(label=f"Total neto acumulado en {pestana_busqueda_tt.lower()}", value=string_acumulado_real_tt)
+
+                        # Lógica de barra de progreso basada en la columna 'Meta' de REPORTES TIKTOK
+                        if not fila_usuario_historial_tt.empty and "Meta" in df_historial_tt.columns:
+                            try:
+                                meta_horas_tt = float(fila_usuario_historial_tt.iloc[0]["Meta"])
+                                if pd.isna(meta_horas_tt) or meta_horas_tt <= 0:
+                                    meta_horas_tt = 0
+                            except ValueError:
+                                meta_horas_tt = 0
+                            
+                            if meta_horas_tt > 0:
+                                total_horas_mes_tt = total_minutos_mes_tt / 60.0
+                                porcentaje_avance_tt = min(1.0, total_horas_mes_tt / meta_horas_tt)
+                                st.write("")
+                                st.markdown(f"**Progreso de Meta Mensual: {porcentaje_avance_tt*100:.1f}%** ({string_acumulado_real_tt} / {meta_horas_tt:.0f} h)")
+                                st.progress(porcentaje_avance_tt)
+                                
+                                minutos_restantes_tt = int((meta_horas_tt * 60) - total_minutos_mes_tt)
+                                if minutos_restantes_tt > 0:
+                                    st.caption(f"Faltan **{formatear_minutos_a_string(minutos_restantes_tt)}** para cumplir tu meta del mes.")
+                                else:
+                                    st.success("¡Felicidades! Has completado tu meta de horas del mes.")
 
         # =========================================================
         # PESTAÑA 2: REPORTE GENERAL (VISIBLE PARA EL ADMIN CON REFRIGERIO)

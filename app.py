@@ -4,11 +4,20 @@ from gspread_dataframe import get_as_dataframe, set_with_dataframe
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 import math
-from streamlit_geolocation import streamlit_geolocation
 import io
 import json
 import base64
 from PIL import Image
+
+# Importación segura de geolocalización con soporte para reseteo dinámico
+try:
+    from streamlit_geolocation import _streamlit_geolocation
+    def obtener_geolocalizacion(clave_dinamica=0):
+        return _streamlit_geolocation(key=f"geo_loc_{clave_dinamica}", default={'latitude': None, 'longitude': None})
+except Exception:
+    import streamlit_geolocation as _sg
+    def obtener_geolocalizacion(clave_dinamica=0):
+        return _sg.streamlit_geolocation()
 
 # Importación segura de Google GenAI (compatible tanto local como en la nube)
 try:
@@ -793,7 +802,7 @@ try:
             st.caption(f"Por seguridad y transparencia, debes verificar tu ubicación con el botón GPS para cada registro (Radio máximo permitido: **{RADIO_MAX_KM*1000:.0f} metros** de la base Ica).")
             
             # Componente de geolocalización con clave dinámica (se reinicia después de cada marcado)
-            loc = streamlit_geolocation(key=f"geo_locator_{st.session_state.geo_key}")
+            loc = obtener_geolocalizacion(st.session_state.geo_key)
             ubicacion_valida = False
             
             if loc and loc.get('latitude') is not None:

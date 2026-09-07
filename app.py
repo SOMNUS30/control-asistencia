@@ -49,30 +49,28 @@ MESES_TEXTO_A_NUM = {
 }
 
 # =========================================================
-# ESTILOS CSS MODERNOS (SaaS Dashboard & Responsive Mobile)
+# ESTILOS CSS BLINDADOS (CORRECCIÓN TOTAL MODO OSCURO / CLARO)
 # =========================================================
 def inyectar_estilos():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-        html, body, [class*="css"] {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            color: #1e293b;
+        /* 1. FORZADO GLOBAL DE TEMA CLARO Y ALTO CONTRASTE */
+        :root, html, body, .stApp {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
         }
 
-        /* Fondo general suave */
-        .stApp {
-            background-color: #f8fafc;
-        }
-
-        /* Contenedor principal con ancho máximo agradable */
+        /* Ancho de contenedor agradable */
         .block-container {
             max-width: 1040px !important;
-            padding-top: 1.5rem !important;
+            padding-top: 1.2rem !important;
             padding-bottom: 3rem !important;
             padding-left: 1rem !important;
             padding-right: 1rem !important;
+            background-color: transparent !important;
         }
 
         /* Ocultar elementos nativos innecesarios de Streamlit */
@@ -81,170 +79,226 @@ def inyectar_estilos():
             display: none !important;
         }
         #MainMenu, footer {
-            visibility: hidden;
+            visibility: hidden !important;
+        }
+
+        /* 2. PROTECCIÓN CONTRA LETRAS INVISIBLES EN DISPOSITIVOS CON MODO OSCURO */
+        p, span, div, h1, h2, h3, h4, h5, h6, strong, b, em, label {
+            color: #0f172a !important;
+        }
+        
+        .stMarkdown, .stMarkdown * {
+            color: #1e293b !important;
+        }
+
+        .stCaption, [data-testid="stCaptionContainer"], small {
+            color: #64748b !important;
+        }
+
+        /* 3. INPUTS Y FORMULARIOS BLINDADOS (FONDO BLANCO Y TEXTO NEGRO) */
+        input, textarea, select {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        div[data-baseweb="base-input"], div[data-baseweb="input"] {
+            background-color: #ffffff !important;
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 10px !important;
+        }
+        div[data-baseweb="input"] input {
+            background-color: transparent !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+        }
+        div[data-baseweb="input"] input::placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        /* Calendario emergente de Streamlit */
+        div[data-baseweb="popover"], div[data-baseweb="calendar"] {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+        }
+        div[data-baseweb="calendar"] * {
+            color: #0f172a !important;
         }
 
         /* ================= CARDS MODERNAS ================= */
         .saas-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 18px;
-            padding: 24px;
-            box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04), 0 2px 6px -2px rgba(15, 23, 42, 0.02);
-            margin-bottom: 20px;
-            transition: all 0.2s ease-in-out;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 18px !important;
+            padding: 24px !important;
+            box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04), 0 2px 6px -2px rgba(15, 23, 42, 0.02) !important;
+            margin-bottom: 20px !important;
         }
-        .saas-card:hover {
-            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.07), 0 4px 8px -3px rgba(15, 23, 42, 0.03);
+        .saas-card * {
+            color: #1e293b !important;
+        }
+        .saas-card h1, .saas-card h2, .saas-card h3, .saas-card h4, .saas-card h5, .saas-card h6 {
+            color: #0f172a !important;
+        }
+        .saas-card .stCaption, .saas-card small {
+            color: #64748b !important;
         }
 
         /* ================= NAVBAR & HEADER ================= */
         .app-navbar {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 16px;
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 22px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 16px !important;
+            padding: 14px 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            margin-bottom: 20px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
         }
         .app-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
         }
         .app-logo-badge {
-            width: 42px;
-            height: 42px;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            color: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 20px;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+            width: 42px !important;
+            height: 42px !important;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-weight: 800 !important;
+            font-size: 20px !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
         }
         .app-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #0f172a;
-            margin: 0;
-            line-height: 1.2;
+            font-size: 16px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            line-height: 1.2 !important;
         }
         .app-subtitle {
-            font-size: 12px;
-            color: #64748b;
-            margin: 0;
+            font-size: 12px !important;
+            color: #64748b !important;
+            margin: 0 !important;
         }
         .role-badge-admin {
-            background: #eff6ff;
-            color: #2563eb;
-            border: 1px solid #bfdbfe;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
+            background: #eff6ff !important;
+            color: #2563eb !important;
+            border: 1px solid #bfdbfe !important;
+            padding: 2px 8px !important;
+            border-radius: 6px !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
         }
         .role-badge-asesor {
-            background: #f8fafc;
-            color: #64748b;
-            border: 1px solid #e2e8f0;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
+            background: #f8fafc !important;
+            color: #475569 !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 2px 8px !important;
+            border-radius: 6px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
         }
 
         /* ================= STEPPER DE ASISTENCIA ================= */
         .stepper-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin: 18px 0 24px 0;
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 12px !important;
+            margin: 18px 0 24px 0 !important;
         }
         @media (max-width: 640px) {
             .stepper-container {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, 1fr) !important;
             }
         }
         .step-card {
-            background: #ffffff;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 14px 12px;
-            text-align: center;
-            transition: all 0.2s ease;
+            background: #ffffff !important;
+            border: 1.5px solid #e2e8f0 !important;
+            border-radius: 14px !important;
+            padding: 14px 12px !important;
+            text-align: center !important;
         }
         .step-card.active {
-            border-color: #3b82f6;
-            background: #eff6ff;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+            border-color: #3b82f6 !important;
+            background: #eff6ff !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
         }
         .step-card.completed {
-            border-color: #10b981;
-            background: #f0fdf4;
+            border-color: #10b981 !important;
+            background: #f0fdf4 !important;
         }
         .step-icon {
-            font-size: 20px;
-            margin-bottom: 6px;
+            font-size: 20px !important;
+            margin-bottom: 6px !important;
         }
         .step-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #475569;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+            margin-bottom: 4px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.3px !important;
         }
         .step-value {
-            font-size: 14px;
-            font-weight: 700;
-            color: #0f172a;
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
         }
         .step-value.empty {
-            color: #94a3b8;
-            font-weight: 500;
-            font-size: 12px;
+            color: #94a3b8 !important;
+            font-weight: 500 !important;
+            font-size: 12px !important;
         }
 
-        /* ================= GPS BADGE ================= */
+        /* ================= GPS BADGES ================= */
         .gps-card-ok {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            border-radius: 14px;
-            padding: 14px 18px;
-            color: #065f46;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 18px;
+            background: #ecfdf5 !important;
+            border: 1px solid #a7f3d0 !important;
+            border-radius: 14px !important;
+            padding: 14px 18px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            margin-bottom: 18px !important;
+        }
+        .gps-card-ok * {
+            color: #065f46 !important;
         }
         .gps-card-error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 14px;
-            padding: 14px 18px;
-            color: #991b1b;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 18px;
+            background: #fef2f2 !important;
+            border: 1px solid #fecaca !important;
+            border-radius: 14px !important;
+            padding: 14px 18px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            margin-bottom: 18px !important;
+        }
+        .gps-card-error * {
+            color: #991b1b !important;
         }
         .gps-card-warning {
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-radius: 14px;
-            padding: 14px 18px;
-            color: #92400e;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 18px;
+            background: #fffbeb !important;
+            border: 1px solid #fde68a !important;
+            border-radius: 14px !important;
+            padding: 14px 18px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            margin-bottom: 18px !important;
+        }
+        .gps-card-warning * {
+            color: #92400e !important;
         }
 
         /* ================= BOTONES PERSONALIZADOS ================= */
@@ -252,7 +306,6 @@ def inyectar_estilos():
             border-radius: 12px !important;
             font-weight: 600 !important;
             padding: 0.6rem 1.2rem !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             border: 1px solid transparent !important;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
         }
@@ -268,6 +321,9 @@ def inyectar_estilos():
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
             color: #ffffff !important;
             border: none !important;
+        }
+        div.stButton > button[kind="primary"] * {
+            color: #ffffff !important;
         }
 
         /* ================= TABS MODERNOS ================= */
@@ -287,7 +343,6 @@ def inyectar_estilos():
             color: #64748b !important;
             border: none !important;
             background: transparent !important;
-            transition: all 0.15s ease !important;
         }
         .stTabs [aria-selected="true"] {
             background-color: #ffffff !important;
@@ -297,48 +352,76 @@ def inyectar_estilos():
 
         /* ================= PANTALLA DE LOGIN ================= */
         .login-wrapper {
-            max-width: 440px;
-            margin: 40px auto;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 40px 32px;
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
-            text-align: center;
+            max-width: 440px !important;
+            margin: 40px auto !important;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 24px !important;
+            padding: 40px 32px !important;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07) !important;
+            text-align: center !important;
         }
         .login-icon {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            color: white;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+            width: 64px !important;
+            height: 64px !important;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+            border-radius: 20px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 28px !important;
+            color: white !important;
+            margin-bottom: 20px !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important;
         }
         .login-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 6px;
+            font-size: 24px !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            margin-bottom: 6px !important;
         }
         .login-desc {
-            font-size: 14px;
-            color: #64748b;
-            margin-bottom: 28px;
+            font-size: 14px !important;
+            color: #64748b !important;
+            margin-bottom: 28px !important;
         }
 
+        /* ================= EXPANDERS Y DATAFRAMES ================= */
+        div[data-testid="stExpander"] {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 14px !important;
+        }
+        div[data-testid="stExpander"] details {
+            background-color: #ffffff !important;
+        }
+        div[data-testid="stExpander"] summary span {
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+
+        div[data-testid="stDataFrame"] {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+        }
+
+        /* Métricas nativas */
         [data-testid="stMetricValue"] {
             font-size: 1.6rem !important;
             font-weight: 800 !important;
             color: #0f172a !important;
         }
+        [data-testid="stMetricValue"] * {
+            color: #0f172a !important;
+        }
         [data-testid="stMetricLabel"] {
             font-size: 0.85rem !important;
             font-weight: 600 !important;
+            color: #64748b !important;
+        }
+        [data-testid="stMetricLabel"] * {
             color: #64748b !important;
         }
         </style>
@@ -480,7 +563,6 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae con exactitud las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        # Modelos oficiales vigentes de Google GenAI con respaldo escalonado
         modelos_a_probar = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"]
         response = None
         ultimo_error = None
@@ -520,15 +602,12 @@ def actualizar_marcado_seguro(wks, df, usuario, actualizaciones_dict):
     Evita wks.clear() para prevenir pérdidas de datos por concurrencia y preservar formatos.
     """
     try:
-        # Obtener encabezados actuales
         headers = [str(h).strip() for h in wks.row_values(1)]
         
-        # Encontrar columna 'Usuario'
         if "Usuario" not in headers:
             raise ValueError("No se encontró la columna 'Usuario' en la hoja")
         col_usuario_idx = headers.index("Usuario") + 1
         
-        # Encontrar la fila del usuario
         col_usuarios_valores = [str(u).strip() for u in wks.col_values(col_usuario_idx)]
         if usuario not in col_usuarios_valores:
             raise ValueError(f"El usuario '{usuario}' no se encuentra en la hoja")
@@ -538,7 +617,6 @@ def actualizar_marcado_seguro(wks, df, usuario, actualizaciones_dict):
             if col_nombre in headers:
                 col_idx = headers.index(col_nombre) + 1
             else:
-                # Agregar la nueva columna si no existía
                 wks.add_cols(1)
                 col_idx = len(headers) + 1
                 wks.update_cell(1, col_idx, col_nombre)
@@ -550,14 +628,13 @@ def actualizar_marcado_seguro(wks, df, usuario, actualizaciones_dict):
         st.cache_data.clear()
         return True
     except Exception as e:
-        # Fallback de seguridad en caso de inconsistencia estructural
         for col_nombre, nuevo_valor in actualizaciones_dict.items():
             df.loc[df["Usuario"] == usuario, col_nombre] = nuevo_valor
         set_with_dataframe(wks, df, resize=True)
         st.cache_data.clear()
         return True
 
-# Inyectamos estilos visuales
+# Inyectamos estilos visuales blindados
 inyectar_estilos()
 
 # =========================================================
@@ -566,7 +643,6 @@ inyectar_estilos()
 try:
     gc = gspread.service_account_from_dict(dict(st.secrets["gspread"]))
     
-    # ID de Google Sheets configurable por secrets con fallback
     sheet_id = st.secrets.get("SHEET_ID", "1-GCk6phMzn9UEAFomTYco8C8hoLYc7R_daBwcBuRwtU")
     hoja_calculo = gc.open_by_key(sheet_id)
 
@@ -617,6 +693,10 @@ try:
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
         st.session_state.usuario_actual = ""
+    
+    # Clave dinámica para resetear el GPS cada vez que se marque
+    if "geo_key" not in st.session_state:
+        st.session_state.geo_key = 0
 
     # =========================================================
     # VISTA: INICIO DE SESIÓN (LOGIN MODERNO)
@@ -655,6 +735,7 @@ try:
                             st.session_state.autenticado = True
                             st.session_state.usuario_actual = usuario_encontrado.iloc[0]["Usuario"]
                             st.session_state.codigo_actual = codigo_clean
+                            st.session_state.geo_key += 1
                             st.rerun()
                         else:
                             st.error("Código incorrecto. Por favor, verifica tus credenciales.")
@@ -665,7 +746,6 @@ try:
     else:
         es_admin = (st.session_state.usuario_actual == "VALENTIN ISASI")
         hora_live_str = obtener_hora_peru().strftime("%I:%M %p")
-        fecha_live_str = obtener_hora_peru().strftime("%d de %B, %Y")
         
         # Barra de Navegación Superior
         col_nav_info, col_nav_btn = st.columns([3.5, 1])
@@ -687,6 +767,7 @@ try:
             if st.button("Cerrar Sesión", use_container_width=True):
                 st.session_state.autenticado = False
                 st.session_state.usuario_actual = ""
+                st.session_state.geo_key += 1
                 st.rerun()
 
         # Tabs de Navegación
@@ -708,10 +789,11 @@ try:
         # =========================================================
         with tab_marcado:
             st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-            st.markdown("#### 📍 Verificación de Ubicación (GPS Requerido)")
-            st.caption(f"Para garantizar la transparencia, debes encontrarte en un radio máximo de **{RADIO_MAX_KM*1000:.0f} metros** de la base central en Ica.")
+            st.markdown("#### 📍 Verificación de Ubicación Requerida")
+            st.caption(f"Por seguridad y transparencia, debes verificar tu ubicación con el botón GPS para cada registro (Radio máximo permitido: **{RADIO_MAX_KM*1000:.0f} metros** de la base Ica).")
             
-            loc = streamlit_geolocation()
+            # Componente de geolocalización con clave dinámica (se reinicia después de cada marcado)
+            loc = streamlit_geolocation(key=f"geo_locator_{st.session_state.geo_key}")
             ubicacion_valida = False
             
             if loc and loc.get('latitude') is not None:
@@ -726,7 +808,7 @@ try:
                             <span style="font-size: 20px;">✅</span>
                             <div>
                                 <strong>Ubicación confirmada:</strong> Te encuentras dentro del perímetro permitido 
-                                (a <strong>{distancia_km*1000:.0f} metros</strong> de la base).
+                                (a <strong>{distancia_km*1000:.0f} metros</strong> de la base). Ahora puedes pulsar el botón de registro abajo.
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
@@ -745,7 +827,7 @@ try:
                     <div class="gps-card-warning">
                         <span style="font-size: 20px;">📡</span>
                         <div>
-                            <strong>Permiso GPS necesario:</strong> Pulsa el botón de geolocalización de arriba y autoriza los permisos en tu navegador.
+                            <strong>Paso obligatorio:</strong> Pulsa el botón del GPS de arriba para verificar tu ubicación actual.
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -804,6 +886,7 @@ try:
                 with col_btn_ent:
                     if st.button("📥 Registrar Entrada", use_container_width=True, type="primary", disabled=not ubicacion_valida):
                         actualizar_marcado_seguro(wks, df, st.session_state.usuario_actual, {col_entrada: hora_registro_str})
+                        st.session_state.geo_key += 1  # Reset GPS para el siguiente registro
                         st.success(f"Entrada registrada: {hora_registro_str}")
                         st.rerun()
                 with col_btn_perm:
@@ -814,6 +897,7 @@ try:
                             col_ref_retorno: "Permiso",
                             col_salida: "Permiso"
                         })
+                        st.session_state.geo_key += 1  # Reset GPS
                         st.success("Permiso registrado exitosamente.")
                         st.rerun()
             elif is_sal_done:
@@ -827,11 +911,13 @@ try:
                     if not is_ref_sal_done:
                         if st.button("☕ Iniciar Refrigerio / Almuerzo", use_container_width=True, disabled=not ubicacion_valida):
                             actualizar_marcado_seguro(wks, df, st.session_state.usuario_actual, {col_ref_salida: hora_registro_str})
+                            st.session_state.geo_key += 1  # Reset GPS para que deban volver a verificar al retornar
                             st.success(f"Inicio de refrigerio registrado: {hora_registro_str}")
                             st.rerun()
                     elif not is_ref_ret_done:
                         if st.button("💼 Terminar Refrigerio (Retorno)", use_container_width=True, disabled=not ubicacion_valida):
                             actualizar_marcado_seguro(wks, df, st.session_state.usuario_actual, {col_ref_retorno: hora_registro_str})
+                            st.session_state.geo_key += 1  # Reset GPS para la salida final
                             st.success(f"Retorno de refrigerio registrado: {hora_registro_str}")
                             st.rerun()
                     else:
@@ -840,6 +926,7 @@ try:
                 with col_sal:
                     if st.button("🚪 Registrar Salida Final", use_container_width=True, type="primary", disabled=not ubicacion_valida):
                         actualizar_marcado_seguro(wks, df, st.session_state.usuario_actual, {col_salida: hora_registro_str})
+                        st.session_state.geo_key += 1  # Reset GPS
                         st.success(f"Salida registrada: {hora_registro_str}")
                         st.rerun()
 
@@ -1023,7 +1110,6 @@ try:
 
                                         df_tt.loc[df_tt["Usuario"] == usr_act, col_fecha_tt] = total_str_final
                                         
-                                        # Guardar de forma segura en Sheets
                                         actualizar_marcado_seguro(wks_tt, df_tt, usr_act, {col_fecha_tt: total_str_final})
 
                                         st.balloons()

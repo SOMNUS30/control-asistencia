@@ -801,8 +801,31 @@ try:
             st.markdown("#### 📍 Verificación de Ubicación Requerida")
             st.caption(f"Por seguridad y transparencia, debes verificar tu ubicación con el botón GPS para cada registro (Radio máximo permitido: **{RADIO_MAX_KM*1000:.0f} metros** de la base Ica).")
             
-            # Componente de geolocalización con clave dinámica (se reinicia después de cada marcado)
-            loc = obtener_geolocalizacion(st.session_state.geo_key)
+            # --- CONTENEDOR CENTRADO Y ESTILIZADO PARA EL BOTÓN GPS ---
+            col_g_izq, col_g_centro, col_g_der = st.columns([1, 1.4, 1])
+            with col_g_centro:
+                st.markdown("""
+                    <div style="
+                        background: #f8fafc;
+                        border: 1.5px dashed #94a3b8;
+                        border-radius: 16px;
+                        padding: 14px 10px 10px 10px;
+                        text-align: center;
+                        margin: 10px 0 16px 0;
+                    ">
+                        <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 2px;">
+                            🛰️ COMPROBAR COORDENADAS
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                            Presiona el botón de abajo para activar el sensor GPS
+                        </div>
+                """, unsafe_allow_html=True)
+                
+                # Componente de geolocalización
+                loc = obtener_geolocalizacion(st.session_state.geo_key)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+
             ubicacion_valida = False
             
             if loc and loc.get('latitude') is not None:

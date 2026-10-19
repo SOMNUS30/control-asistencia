@@ -65,14 +65,18 @@ def inyectar_estilos():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-        /* 1. FORZADO GLOBAL DE TEMA CLARO Y ALTO CONTRASTE */
-        :root, html, body, .stApp {
+        /* 1. FORZADO GLOBAL DE TEMA CLARO */
+        :root, html, body {
+            color-scheme: light !important;
+            supported-color-schemes: light !important;
+        }
+
+        .stApp, [data-testid="stAppViewContainer"] {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
             background-color: #f8fafc !important;
             color: #0f172a !important;
         }
 
-        /* Ancho de contenedor agradable */
         .block-container {
             max-width: 1040px !important;
             padding-top: 1.2rem !important;
@@ -82,7 +86,6 @@ def inyectar_estilos():
             background-color: transparent !important;
         }
 
-        /* Ocultar elementos nativos innecesarios de Streamlit */
         header[data-testid="stHeader"] {
             background: transparent !important;
             display: none !important;
@@ -91,7 +94,7 @@ def inyectar_estilos():
             visibility: hidden !important;
         }
 
-        /* 2. PROTECCIÓN CONTRA LETRAS INVISIBLES EN DISPOSITIVOS CON MODO OSCURO */
+        /* 2. PROTECCIÓN CONTRA TEXTO INVISIBLE */
         p, span, div, h1, h2, h3, h4, h5, h6, strong, b, em, label {
             color: #0f172a !important;
         }
@@ -104,8 +107,9 @@ def inyectar_estilos():
             color: #64748b !important;
         }
 
-        /* 3. INPUTS Y FORMULARIOS BLINDADOS (FONDO BLANCO Y TEXTO NEGRO) */
+        /* 3. INPUTS Y FORMULARIOS */
         input, textarea, select {
+            color-scheme: light !important;
             background-color: #ffffff !important;
             color: #0f172a !important;
             -webkit-text-fill-color: #0f172a !important;
@@ -126,37 +130,32 @@ def inyectar_estilos():
             -webkit-text-fill-color: #94a3b8 !important;
         }
 
-        /* Calendario emergente de Streamlit */
+        /* 4. POPOVERS Y CALENDARIO */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] {
             background-color: #ffffff !important;
             color: #0f172a !important;
             border-radius: 12px !important;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+            color-scheme: light !important;
         }
         div[data-baseweb="calendar"] * {
             color: #0f172a !important;
         }
 
-        /* ================= CARDS MODERNAS ================= */
+        /* 5. CARDS BLANCAS */
         .saas-card {
             background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 18px !important;
             padding: 24px !important;
-            box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04), 0 2px 6px -2px rgba(15, 23, 42, 0.02) !important;
+            box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04) !important;
             margin-bottom: 20px !important;
         }
         .saas-card * {
             color: #1e293b !important;
         }
-        .saas-card h1, .saas-card h2, .saas-card h3, .saas-card h4, .saas-card h5, .saas-card h6 {
-            color: #0f172a !important;
-        }
-        .saas-card .stCaption, .saas-card small {
-            color: #64748b !important;
-        }
 
-        /* ================= NAVBAR & HEADER ================= */
+        /* 6. NAVBAR SUPERIOR */
         .app-navbar {
             background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
@@ -184,14 +183,12 @@ def inyectar_estilos():
             justify-content: center !important;
             font-weight: 800 !important;
             font-size: 20px !important;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
         }
         .app-title {
             font-size: 16px !important;
             font-weight: 700 !important;
             color: #0f172a !important;
             margin: 0 !important;
-            line-height: 1.2 !important;
         }
         .app-subtitle {
             font-size: 12px !important;
@@ -206,7 +203,6 @@ def inyectar_estilos():
             border-radius: 6px !important;
             font-size: 11px !important;
             font-weight: 700 !important;
-            text-transform: uppercase !important;
         }
         .role-badge-asesor {
             background: #f8fafc !important;
@@ -218,7 +214,7 @@ def inyectar_estilos():
             font-weight: 600 !important;
         }
 
-        /* ================= STEPPER DE ASISTENCIA ================= */
+        /* 7. STEPPER DE ASISTENCIA */
         .stepper-container {
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
@@ -246,96 +242,64 @@ def inyectar_estilos():
             border-color: #10b981 !important;
             background: #f0fdf4 !important;
         }
-        .step-icon {
-            font-size: 20px !important;
-            margin-bottom: 6px !important;
-        }
         .step-label {
             font-size: 12px !important;
-            font-weight: 600 !important;
-            color: #475569 !important;
+            font-weight: 700 !important;
+            color: #334155 !important;
             margin-bottom: 4px !important;
             text-transform: uppercase !important;
-            letter-spacing: 0.3px !important;
         }
         .step-value {
             font-size: 14px !important;
-            font-weight: 700 !important;
+            font-weight: 800 !important;
             color: #0f172a !important;
         }
         .step-value.empty {
-            color: #94a3b8 !important;
-            font-weight: 500 !important;
-            font-size: 12px !important;
+            color: #64748b !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
         }
 
-        /* ================= GPS BADGES ================= */
-        .gps-card-ok {
-            background: #ecfdf5 !important;
-            border: 1px solid #a7f3d0 !important;
-            border-radius: 14px !important;
-            padding: 14px 18px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            margin-bottom: 18px !important;
-        }
-        .gps-card-ok * {
-            color: #065f46 !important;
-        }
-        .gps-card-error {
-            background: #fef2f2 !important;
-            border: 1px solid #fecaca !important;
-            border-radius: 14px !important;
-            padding: 14px 18px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            margin-bottom: 18px !important;
-        }
-        .gps-card-error * {
-            color: #991b1b !important;
-        }
-        .gps-card-warning {
-            background: #fffbeb !important;
-            border: 1px solid #fde68a !important;
-            border-radius: 14px !important;
-            padding: 14px 18px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            margin-bottom: 18px !important;
-        }
-        .gps-card-warning * {
-            color: #92400e !important;
-        }
-
-        /* ================= BOTONES PERSONALIZADOS ================= */
+        /* 8. BOTONES Y ESTADOS DESHABILITADOS */
         div.stButton > button {
             border-radius: 12px !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
             padding: 0.6rem 1.2rem !important;
-            border: 1px solid transparent !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+            border: 1.5px solid #cbd5e1 !important;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+        }
+        div.stButton > button * {
+            color: #0f172a !important;
         }
         div.stButton > button:hover {
-            transform: translateY(-1px) !important;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.1) !important;
+            background-color: #f1f5f9 !important;
+            border-color: #94a3b8 !important;
         }
         
-        div.stButton > button[kind="primary"],
-        div.stButton > button:has(div:contains("Entrada")),
-        div.stButton > button:has(div:contains("Salida")),
-        div.stButton > button:has(div:contains("INICIAR")) {
+        /* Botones primarios (Habilitados) */
+        div.stButton > button[kind="primary"]:not(:disabled) {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-            color: #ffffff !important;
             border: none !important;
         }
-        div.stButton > button[kind="primary"] * {
+        div.stButton > button[kind="primary"]:not(:disabled) * {
             color: #ffffff !important;
         }
 
-        /* ================= TABS MODERNOS ================= */
+        /* Botones Deshabilitados (Evita texto blanco invisible) */
+        div.stButton > button:disabled {
+            background-color: #f1f5f9 !important;
+            border: 1.5px solid #e2e8f0 !important;
+            cursor: not-allowed !important;
+            opacity: 0.9 !important;
+        }
+        div.stButton > button:disabled,
+        div.stButton > button:disabled * {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        /* 9. TABS */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px !important;
             background-color: #f1f5f9 !important;
@@ -350,87 +314,41 @@ def inyectar_estilos():
             font-weight: 600 !important;
             font-size: 14px !important;
             color: #64748b !important;
-            border: none !important;
             background: transparent !important;
+            border: none !important;
         }
         .stTabs [aria-selected="true"] {
             background-color: #ffffff !important;
             color: #0f172a !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
         }
-
-        /* ================= PANTALLA DE LOGIN ================= */
-        .login-wrapper {
-            max-width: 440px !important;
-            margin: 40px auto !important;
-            background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 24px !important;
-            padding: 40px 32px !important;
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07) !important;
-            text-align: center !important;
-        }
-        .login-icon {
-            width: 64px !important;
-            height: 64px !important;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-            border-radius: 20px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 28px !important;
-            color: white !important;
-            margin-bottom: 20px !important;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important;
-        }
-        .login-title {
-            font-size: 24px !important;
-            font-weight: 800 !important;
+        .stTabs [aria-selected="true"] * {
             color: #0f172a !important;
-            margin-bottom: 6px !important;
-        }
-        .login-desc {
-            font-size: 14px !important;
-            color: #64748b !important;
-            margin-bottom: 28px !important;
         }
 
-        /* ================= EXPANDERS Y DATAFRAMES ================= */
+        /* 10. EXPANDERS Y TABLAS */
         div[data-testid="stExpander"] {
             background-color: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 14px !important;
         }
-        div[data-testid="stExpander"] details {
-            background-color: #ffffff !important;
-        }
         div[data-testid="stExpander"] summary span {
             color: #0f172a !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
         }
-
         div[data-testid="stDataFrame"] {
             background-color: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
-            overflow: hidden !important;
         }
-
-        /* Métricas nativas */
-        [data-testid="stMetricValue"] {
+        [data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
             font-size: 1.6rem !important;
             font-weight: 800 !important;
             color: #0f172a !important;
         }
-        [data-testid="stMetricValue"] * {
-            color: #0f172a !important;
-        }
-        [data-testid="stMetricLabel"] {
+        [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {
             font-size: 0.85rem !important;
             font-weight: 600 !important;
-            color: #64748b !important;
-        }
-        [data-testid="stMetricLabel"] * {
             color: #64748b !important;
         }
         </style>

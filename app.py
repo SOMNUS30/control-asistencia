@@ -7,6 +7,7 @@ import math
 import io
 import json
 import base64
+import urllib.request
 from PIL import Image
 
 # Importación segura de geolocalización con soporte para reseteo dinámico
@@ -664,20 +665,14 @@ def obtener_o_crear_carpeta_capturas(service):
     except Exception:
         return None
 
+DRIVE_WEBHOOK_URL_DEFAULT = "https://script.google.com/macros/s/AKfycbxNtXbCZ0WOU64MAiUNo1gePADX2t264CMn9NpkF9e6UCCgaq2H5n5c9e0U23LbHvbZOQ/exec"
+
 def subir_captura_drive(imagen_bytes, usuario, fecha_live):
     """
-    Comprime y sube la captura de TikTok a Google Drive optimizando el tamaño.
+    Comprime y sube la captura de TikTok a Google Drive vía Webhook de Apps Script (o Service Account).
     Retorna un diccionario con datos del archivo y None, o None y el motivo del fallo.
     """
-    if not drive_api_disponible:
-        return None, "Librerías de Google Drive API no instaladas en el entorno."
     try:
-        service = obtener_servicio_drive()
-        if not service:
-            return None, "No se pudo conectar a Google Drive. Revisa los secrets."
-            
-        folder_id = obtener_o_crear_carpeta_capturas(service)
-        
         # Optimizar imagen (JPEG calidad 85%, máx 1280px) para ahorrar espacio y acelerar carga
         img = Image.open(io.BytesIO(imagen_bytes))
         if img.mode in ("RGBA", "P"):
@@ -685,44 +680,81 @@ def subir_captura_drive(imagen_bytes, usuario, fecha_live):
         img.thumbnail((1280, 1280))
         buffer_opt = io.BytesIO()
         img.save(buffer_opt, format="JPEG", quality=85, optimize=True)
-        buffer_opt.seek(0)
+        img_bytes_opt = buffer_opt.getvalue()
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         usuario_slug = "".join([c if c.isalnum() else "_" for c in usuario]).strip("_")
         fecha_slug = str(fecha_live).replace("/", "-")
         nombre_archivo = f"{fecha_slug}_{usuario_slug}_{timestamp}.jpg"
-        
-        file_metadata = {"name": nombre_archivo}
-        if folder_id:
-            file_metadata["parents"] = [folder_id]
-            
-        media = MediaIoBaseUpload(buffer_opt, mimetype="image/jpeg", resumable=False)
-        archivo = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id, webViewLink, webContentLink"
-        ).execute()
-        
-        file_id = archivo.get("id")
-        
-        # Asignar permiso de lectura pública para poder verla directamente en el panel
-        try:
-            service.permissions().create(
-                fileId=file_id,
-                body={"role": "reader", "type": "anyone"}
-            ).execute()
-        except Exception:
-            pass
-            
-        view_link = archivo.get("webViewLink") or f"https://drive.google.com/file/d/{file_id}/view"
-        direct_link = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
-        
-        return {
-            "file_id": file_id,
-            "view_link": view_link,
-            "direct_link": direct_link,
-            "nombre": nombre_archivo
-        }, None
+
+        # 1. Método principal: Google Apps Script Webhook (sin restricción de cuota de Service Account)
+        webhook_url = st.secrets.get("DRIVE_WEBHOOK_URL", DRIVE_WEBHOOK_URL_DEFAULT)
+        if webhook_url:
+            try:
+                b64_img = base64.b64encode(img_bytes_opt).decode("utf-8")
+                payload = json.dumps({
+                    "image_base64": b64_img,
+                    "filename": nombre_archivo
+                }).encode("utf-8")
+                
+                req = urllib.request.Request(
+                    webhook_url,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    
+                if resp_data.get("status") == "success":
+                    file_id = resp_data.get("file_id")
+                    view_link = resp_data.get("view_link") or f"https://drive.google.com/file/d/{file_id}/view"
+                    direct_link = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
+                    return {
+                        "file_id": file_id,
+                        "view_link": view_link,
+                        "direct_link": direct_link,
+                        "nombre": nombre_archivo
+                    }, None
+                else:
+                    webhook_err = resp_data.get("message", "Error devuelto por Apps Script")
+            except Exception as w_ex:
+                webhook_err = str(w_ex)
+        else:
+            webhook_err = "No hay URL de webhook configurada"
+
+        # 2. Respaldo: Google Drive API (Service Account)
+        if drive_api_disponible:
+            service = obtener_servicio_drive()
+            if service:
+                folder_id = obtener_o_crear_carpeta_capturas(service)
+                file_metadata = {"name": nombre_archivo}
+                if folder_id:
+                    file_metadata["parents"] = [folder_id]
+                media = MediaIoBaseUpload(io.BytesIO(img_bytes_opt), mimetype="image/jpeg", resumable=False)
+                archivo = service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id, webViewLink, webContentLink"
+                ).execute()
+                file_id = archivo.get("id")
+                try:
+                    service.permissions().create(
+                        fileId=file_id,
+                        body={"role": "reader", "type": "anyone"}
+                    ).execute()
+                except Exception:
+                    pass
+                view_link = archivo.get("webViewLink") or f"https://drive.google.com/file/d/{file_id}/view"
+                direct_link = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
+                return {
+                    "file_id": file_id,
+                    "view_link": view_link,
+                    "direct_link": direct_link,
+                    "nombre": nombre_archivo
+                }, None
+
+        return None, f"Fallo al subir a Google Drive: {webhook_err}"
     except Exception as e:
         return None, str(e)
 

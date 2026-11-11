@@ -25,6 +25,15 @@ try:
 except ImportError:
     genai = None
 
+# Importación segura de Google Drive API
+try:
+    from google.oauth2.service_account import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload
+    drive_api_disponible = True
+except ImportError:
+    drive_api_disponible = False
+
 # =========================================================
 # CONFIGURACIÓN DE PÁGINA Y CONSTANTES
 # =========================================================
@@ -618,6 +627,136 @@ def analizar_historial_tiktok(imagen_bytes):
         return {"valido": False, "motivo_error": str(e)}
 
 # =========================================================
+# INTEGRACIÓN GOOGLE DRIVE (ALMACENAMIENTO DE CAPTURAS TIKTOK)
+# =========================================================
+def obtener_servicio_drive():
+    """Conecta con la API de Google Drive v3 usando la cuenta de servicio de Google."""
+    if not drive_api_disponible:
+        return None
+    try:
+        creds_dict = dict(st.secrets["gspread"])
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    except Exception:
+        return None
+
+def obtener_o_crear_carpeta_capturas(service):
+    """Obtiene el ID de la carpeta configurada en secrets o busca/crea 'Capturas_TikTok_Asistencia'."""
+    folder_id = st.secrets.get("DRIVE_FOLDER_ID", "").strip()
+    if folder_id:
+        return folder_id
+    try:
+        query = "mimeType = 'application/vnd.google-apps.folder' and name = 'Capturas_TikTok_Asistencia' and trashed = false"
+        res = service.files().list(q=query, fields="files(id, name)", spaces="drive").execute()
+        files = res.get("files", [])
+        if files:
+            return files[0]["id"]
+        metadata = {
+            "name": "Capturas_TikTok_Asistencia",
+            "mimeType": "application/vnd.google-apps.folder"
+        }
+        nueva_carpeta = service.files().create(body=metadata, fields="id").execute()
+        return nueva_carpeta.get("id")
+    except Exception:
+        return None
+
+def subir_captura_drive(imagen_bytes, usuario, fecha_live):
+    """
+    Comprime y sube la captura de TikTok a Google Drive optimizando el tamaño.
+    Retorna un diccionario con datos del archivo y None, o None y el motivo del fallo.
+    """
+    if not drive_api_disponible:
+        return None, "Librerías de Google Drive API no instaladas en el entorno."
+    try:
+        service = obtener_servicio_drive()
+        if not service:
+            return None, "No se pudo conectar a Google Drive. Revisa los secrets."
+            
+        folder_id = obtener_o_crear_carpeta_capturas(service)
+        
+        # Optimizar imagen (JPEG calidad 85%, máx 1280px) para ahorrar espacio y acelerar carga
+        img = Image.open(io.BytesIO(imagen_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail((1280, 1280))
+        buffer_opt = io.BytesIO()
+        img.save(buffer_opt, format="JPEG", quality=85, optimize=True)
+        buffer_opt.seek(0)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        usuario_slug = "".join([c if c.isalnum() else "_" for c in usuario]).strip("_")
+        fecha_slug = str(fecha_live).replace("/", "-")
+        nombre_archivo = f"{fecha_slug}_{usuario_slug}_{timestamp}.jpg"
+        
+        file_metadata = {"name": nombre_archivo}
+        if folder_id:
+            file_metadata["parents"] = [folder_id]
+            
+        media = MediaIoBaseUpload(buffer_opt, mimetype="image/jpeg", resumable=False)
+        archivo = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id, webViewLink, webContentLink"
+        ).execute()
+        
+        file_id = archivo.get("id")
+        
+        # Asignar permiso de lectura pública para poder verla directamente en el panel
+        try:
+            service.permissions().create(
+                fileId=file_id,
+                body={"role": "reader", "type": "anyone"}
+            ).execute()
+        except Exception:
+            pass
+            
+        view_link = archivo.get("webViewLink") or f"https://drive.google.com/file/d/{file_id}/view"
+        direct_link = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
+        
+        return {
+            "file_id": file_id,
+            "view_link": view_link,
+            "direct_link": direct_link,
+            "nombre": nombre_archivo
+        }, None
+    except Exception as e:
+        return None, str(e)
+
+def registrar_evidencia_tiktok(doc_tiktok, fecha_registro, fecha_live, usuario, codigo, total_horas_str, transmisiones_lista, drive_info):
+    """Registra la auditoría en la pestaña EVIDENCIAS_CAPTURA de Google Sheets con el link a Drive."""
+    try:
+        try:
+            wks_ev = doc_tiktok.worksheet("EVIDENCIAS_CAPTURA")
+        except Exception:
+            wks_ev = doc_tiktok.add_worksheet(title="EVIDENCIAS_CAPTURA", rows="1000", cols="8")
+            wks_ev.append_row([
+                "Fecha Registro", "Fecha Live", "Usuario", "Codigo", 
+                "Tiempo Total", "Detalle Transmisiones", "Link Captura", "Drive File ID"
+            ])
+            
+        detalle_str = " | ".join([f"{t.get('inicio', '')} a {t.get('fin', '')}" for t in transmisiones_lista])
+        link_str = drive_info.get("view_link", "") if drive_info else ""
+        file_id_str = drive_info.get("file_id", "") if drive_info else ""
+        
+        wks_ev.append_row([
+            fecha_registro,
+            fecha_live,
+            usuario,
+            codigo,
+            total_horas_str,
+            detalle_str,
+            link_str,
+            file_id_str
+        ])
+        return True
+    except Exception:
+        return False
+
+# =========================================================
 # OPERACIONES SEGURAS EN GOOGLE SHEETS (SIN wks.clear())
 # =========================================================
 def actualizar_marcado_seguro(wks, df, usuario, actualizaciones_dict):
@@ -684,6 +823,15 @@ try:
             doc_tt = gc.open("REPORTES TIKTOK")
             wks_tt_local = doc_tt.worksheet(pestana_nombre)
             return get_as_dataframe(wks_tt_local).dropna(how="all").dropna(axis=1, how="all")
+        except Exception:
+            return pd.DataFrame()
+
+    @st.cache_data(ttl=60)
+    def cargar_evidencias_tiktok():
+        try:
+            doc_tt = gc.open("REPORTES TIKTOK")
+            wks_ev = doc_tt.worksheet("EVIDENCIAS_CAPTURA")
+            return get_as_dataframe(wks_ev).dropna(how="all").dropna(axis=1, how="all")
         except Exception:
             return pd.DataFrame()
 
@@ -1140,7 +1288,7 @@ try:
                         col_subir, col_cancelar = st.columns(2)
                         with col_subir:
                             if st.button("✅ Subir Reporte", use_container_width=True, type="primary"):
-                                with st.spinner("Guardando en REPORTES TIKTOK..."):
+                                with st.spinner("Guardando horas y subiendo captura a Google Drive..."):
                                     try:
                                         doc_tiktok = gc.open("REPORTES TIKTOK")
                                         num_mes = MESES_TEXTO_A_NUM.get(mes_raw, obtener_hora_peru().month)
@@ -1181,8 +1329,25 @@ try:
                                         
                                         actualizar_marcado_seguro(wks_tt, df_tt, usr_act, {col_fecha_tt: total_str_final})
 
+                                        # Subir captura a Google Drive y registrar evidencia de auditoría
+                                        drive_info, drive_err = subir_captura_drive(bytes_tt, usr_act, col_fecha_tt)
+                                        fecha_reg_str = obtener_hora_peru().strftime("%d/%m/%Y %I:%M %p")
+                                        registrar_evidencia_tiktok(
+                                            doc_tiktok=doc_tiktok,
+                                            fecha_registro=fecha_reg_str,
+                                            fecha_live=col_fecha_tt,
+                                            usuario=usr_act,
+                                            codigo=cod_act,
+                                            total_horas_str=total_tt_str,
+                                            transmisiones_lista=transmisiones,
+                                            drive_info=drive_info
+                                        )
+
                                         st.balloons()
-                                        st.success(f"Reporte subido con éxito: **{total_tt_str}** agregados. Total acumulado del día: **{total_str_final}** en {pestana_tt}.")
+                                        if drive_info:
+                                            st.success(f"🎉 **¡Reporte Exitoso!** Horas agregadas: **{total_tt_str}** (Total acumulado: **{total_str_final}** en {pestana_tt}). La foto se guardó en Google Drive para auditoría.")
+                                        else:
+                                            st.warning(f"Horas registradas con éxito (**{total_tt_str}**), pero la foto no se pudo subir a Drive ({drive_err}).")
                                         
                                         st.session_state.pop("res_tiktok_data", None)
                                         st.session_state.pop("id_archivo_tt_actual", None)
@@ -1239,6 +1404,24 @@ try:
                         st.markdown(f"**Meta Mensual TikTok:** {(tot_min_tt/60.0):.1f} h / {meta_tt:.0f} h (**{pct_tt*100:.1f}%**)")
                         st.progress(pct_tt)
 
+                # Historial de capturas enviadas por el asesor
+                df_mis_ev = cargar_evidencias_tiktok()
+                if not df_mis_ev.empty and "Usuario" in df_mis_ev.columns:
+                    ev_user = df_mis_ev[df_mis_ev["Usuario"] == st.session_state.usuario_actual]
+                    if not ev_user.empty:
+                        st.markdown("---")
+                        st.markdown("###### 📸 Mis Capturas Subidas Recientes")
+                        for _, row_ev in ev_user.iloc[::-1].head(5).iterrows():
+                            f_l = row_ev.get("Fecha Live", "-")
+                            h_t = row_ev.get("Tiempo Total", "-")
+                            l_k = row_ev.get("Link Captura", "")
+                            c_t1, c_t2 = st.columns([3, 1])
+                            with c_t1:
+                                st.caption(f"• **Live {f_l}:** `{h_t}` ({row_ev.get('Detalle Transmisiones', '')})")
+                            with c_t2:
+                                if l_k and str(l_k).startswith("http"):
+                                    st.markdown(f"[🔗 Ver Foto]({l_k})")
+
         # =========================================================
         # PESTAÑA 3: PANEL GENERAL ADMINISTRADOR
         # =========================================================
@@ -1262,7 +1445,11 @@ try:
                 c_adm_s = f"{f_adm_str} (Salida)"
 
                 if not df_admin.empty:
-                    sub_dia, sub_mes = st.tabs(["📋 Asistencia Diaria", "📈 Consolidado Mensual del Equipo"])
+                    sub_dia, sub_mes, sub_auditoria_tt = st.tabs([
+                        "📋 Asistencia Diaria", 
+                        "📈 Consolidado Mensual del Equipo", 
+                        "📸 Auditoría Capturas TikTok"
+                    ])
                     
                     with sub_dia:
                         if c_adm_e in df_admin.columns and c_adm_s in df_admin.columns:
@@ -1318,6 +1505,8 @@ try:
                             if "Meta" in df_admin.columns and not pd.isna(r["Meta"]):
                                 try:
                                     meta_v = float(str(r["Meta"]).strip())
+                                    if pd.isna(meta_v) or meta_v <= 0:
+                                        meta_v = 0
                                 except (ValueError, TypeError):
                                     meta_v = 0
                                     
@@ -1333,6 +1522,67 @@ try:
                             })
                             
                         st.dataframe(pd.DataFrame(resumen_mensual), use_container_width=True, hide_index=True)
+
+                    with sub_auditoria_tt:
+                        st.markdown("###### 📸 Historial y Auditoría de Capturas TikTok")
+                        st.caption("Inspecciona las capturas originales subidas a Google Drive para contrastar con las lecturas de la IA.")
+                        
+                        df_auditoria = cargar_evidencias_tiktok()
+                        if not df_auditoria.empty and "Usuario" in df_auditoria.columns:
+                            col_f_usr, col_f_dia = st.columns([1.5, 1.5])
+                            with col_f_usr:
+                                lista_usrs = ["Todos"] + sorted(list(df_auditoria["Usuario"].dropna().unique()))
+                                sel_usr = st.selectbox("Filtrar por Asesor:", lista_usrs, key="aud_filtro_asesor")
+                            with col_f_dia:
+                                lista_fechas = ["Todas"] + sorted(list(df_auditoria["Fecha Live"].dropna().unique()), reverse=True)
+                                sel_fecha = st.selectbox("Filtrar por Fecha del Live:", lista_fechas, key="aud_filtro_fecha")
+                                
+                            df_aud_filtrada = df_auditoria.copy()
+                            if sel_usr != "Todos":
+                                df_aud_filtrada = df_aud_filtrada[df_aud_filtrada["Usuario"] == sel_usr]
+                            if sel_fecha != "Todas":
+                                df_aud_filtrada = df_aud_filtrada[df_aud_filtrada["Fecha Live"] == sel_fecha]
+                                
+                            st.caption(f"Mostrando **{len(df_aud_filtrada)}** capturas registradas:")
+                            
+                            # Mostrar las más recientes primero
+                            for _, r_aud in df_aud_filtrada.iloc[::-1].iterrows():
+                                a_usr = str(r_aud.get("Usuario", "-"))
+                                a_flive = str(r_aud.get("Fecha Live", "-"))
+                                a_freg = str(r_aud.get("Fecha Registro", "-"))
+                                a_tot = str(r_aud.get("Tiempo Total", "-"))
+                                a_det = str(r_aud.get("Detalle Transmisiones", "-"))
+                                a_link = str(r_aud.get("Link Captura", ""))
+                                a_fid = str(r_aud.get("Drive File ID", "")).strip()
+                                
+                                with st.expander(f"📷 {a_usr} — Live: {a_flive} ({a_tot})", expanded=False):
+                                    col_info_aud, col_img_aud = st.columns([1.2, 1.8])
+                                    with col_info_aud:
+                                        st.markdown(f"**Asesor:** {a_usr}")
+                                        st.markdown(f"**Fecha del Live:** `{a_flive}`")
+                                        st.markdown(f"**Fecha y Hora Registro:** `{a_freg}`")
+                                        st.markdown(f"**Tiempo Reconocido:** `{a_tot}`")
+                                        st.markdown(f"**Transmisiones:** {a_det}")
+                                        st.write("")
+                                        if a_link and a_link.startswith("http"):
+                                            st.link_button("🔍 Abrir Foto en Google Drive", a_link, use_container_width=True)
+                                        else:
+                                            st.caption("Sin enlace directo a Drive.")
+                                            
+                                    with col_img_aud:
+                                        if a_fid and a_fid not in ["nan", "None", ""]:
+                                            thumb_url = f"https://drive.google.com/thumbnail?id={a_fid}&sz=w1000"
+                                            st.image(thumb_url, caption=f"Captura de {a_usr} ({a_flive})", use_container_width=True)
+                                        elif a_link and a_link.startswith("http"):
+                                            st.markdown(f"[🔗 Ver captura completa en Drive]({a_link})")
+                                        else:
+                                            st.info("Sin previsualización.")
+                                            
+                            st.markdown("---")
+                            with st.expander("📄 Ver Tabla Completa de Registros"):
+                                st.dataframe(df_aud_filtrada, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Aún no hay capturas de TikTok registradas en la pestaña EVIDENCIAS_CAPTURA.")
                 else:
                     st.caption("No se encontraron datos en la hoja del mes seleccionado.")
 

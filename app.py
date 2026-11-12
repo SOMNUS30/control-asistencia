@@ -3,6 +3,7 @@ import gspread
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+import calendar
 import math
 import io
 import json
@@ -55,6 +56,10 @@ MESES_ESPANOL = {
     1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
     5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
     9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+}
+
+DIAS_SEMANA_ESPANOL = {
+    0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"
 }
 
 MESES_TEXTO_A_NUM = {
@@ -546,6 +551,120 @@ def parsear_string_a_minutos(cadena_tiempo):
             return int(cadena_clean)
     except Exception:
         return 0
+
+def obtener_semanas_laborales(year, month):
+    """
+    Divide el mes en semanas laborales de Lunes a Sábado (omitiendo Domingos).
+    Retorna un diccionario {semana_num: {'num': int, 'dias': [day_ints], 'inicio': date, 'fin': date, 'label': str, 'meta_col': str}}
+    """
+    num_days = calendar.monthrange(year, month)[1]
+    semanas = {}
+    current_w = 1
+    for day in range(1, num_days + 1):
+        d = datetime(year, month, day).date()
+        if d.weekday() == 6:  # Domingo no se labora
+            continue
+        if d.weekday() == 0 and day > 1:
+            if current_w in semanas and len(semanas[current_w]) > 0:
+                current_w += 1
+        if current_w not in semanas:
+            semanas[current_w] = []
+        semanas[current_w].append(day)
+        
+    resultado = {}
+    for w_idx, dias in semanas.items():
+        d_ini = datetime(year, month, dias[0]).date()
+        d_fin = datetime(year, month, dias[-1]).date()
+        lbl = f"Semana {w_idx} ({d_ini.strftime('%d/%m')} al {d_fin.strftime('%d/%m')})"
+        resultado[w_idx] = {
+            "num": w_idx,
+            "dias": dias,
+            "inicio": d_ini,
+            "fin": d_fin,
+            "label": lbl,
+            "meta_col": f"Meta S{w_idx}"
+        }
+    return resultado
+
+def obtener_num_semana_para_fecha(fecha_d, dict_semanas):
+    """Determina a qué semana laboral pertenece una fecha del mes."""
+    day = fecha_d.day
+    for w_idx, s_info in dict_semanas.items():
+        if day in s_info["dias"]:
+            return w_idx
+    if fecha_d.weekday() == 6 and day > 1:
+        for w_idx, s_info in dict_semanas.items():
+            if (day - 1) in s_info["dias"]:
+                return w_idx
+    return 1
+
+def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas):
+    """
+    Calcula las horas trabajadas por semana y las metas semanales de un asesor.
+    Retorna: (resumen_por_semana, total_mes_min, meta_mes_total)
+    """
+    resumen = {}
+    total_mes_min = 0
+    meta_mes_total = 0
+    tiene_metas_semanales = False
+
+    for w_idx, s_info in dict_semanas.items():
+        min_semana = 0
+        dias_asistidos_sem = 0
+        for day in s_info["dias"]:
+            f_str = f"{day:02d}/{month:02d}/{year}"
+            ce = f"{f_str} (Entrada)"
+            cs = f"{f_str} (Salida)"
+            if ce in df_mes.columns and cs in df_mes.columns and not fila_user.empty:
+                ve = str(fila_user.iloc[0][ce]).strip()
+                vrs = str(fila_user.iloc[0][f"{f_str} (Inicio Ref)"]).strip() if f"{f_str} (Inicio Ref)" in df_mes.columns else ""
+                vrr = str(fila_user.iloc[0][f"{f_str} (Fin Ref)"]).strip() if f"{f_str} (Fin Ref)" in df_mes.columns else ""
+                vs = str(fila_user.iloc[0][cs]).strip()
+                m_d = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
+                if m_d > 0:
+                    min_semana += m_d
+                    dias_asistidos_sem += 1
+
+        # Leer meta de la semana (ej. 'Meta S1', 'Meta S2')
+        m_col = s_info["meta_col"]
+        meta_s_val = 0.0
+        if not fila_user.empty and m_col in df_mes.columns:
+            try:
+                v_raw = str(fila_user.iloc[0][m_col]).strip()
+                if v_raw not in ["", "nan", "None", "-"]:
+                    meta_s_val = float(v_raw)
+                    if meta_s_val > 0:
+                        tiene_metas_semanales = True
+            except (ValueError, TypeError):
+                meta_s_val = 0.0
+
+        total_mes_min += min_semana
+        meta_mes_total += max(0.0, meta_s_val)
+
+        pct_s = min(1.0, (min_semana / 60.0) / meta_s_val) if meta_s_val > 0 else 0.0
+        resumen[w_idx] = {
+            "num": w_idx,
+            "label": s_info["label"],
+            "minutos": min_semana,
+            "horas_str": formatear_minutos_a_string(min_semana),
+            "meta_horas": meta_s_val,
+            "pct": pct_s,
+            "dias_asistidos": dias_asistidos_sem,
+            "inicio": s_info["inicio"],
+            "fin": s_info["fin"],
+            "dias": s_info["dias"]
+        }
+
+    # Si no se encontraron metas en Meta S1..S5, usar la columna 'Meta' mensual si existe
+    if not tiene_metas_semanales and not fila_user.empty and "Meta" in df_mes.columns:
+        try:
+            meta_gen = float(str(fila_user.iloc[0]["Meta"]).strip())
+            if not pd.isna(meta_gen) and meta_gen > 0:
+                meta_mes_total = meta_gen
+        except (ValueError, TypeError):
+            pass
+
+    return resumen, total_mes_min, meta_mes_total
 
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     """Calcula duración en minutos entre inicio y fin de un live."""
@@ -1182,77 +1301,107 @@ try:
             st.markdown('</div>', unsafe_allow_html=True)
 
             # =========================================================
-            # CONSULTA DE HISTORIAL Y META MENSUAL
+            # CONSULTA DE HISTORIAL Y METAS SEMANALES / MENSUALES
             # =========================================================
-            with st.expander("📅 Consultar Mi Historial y Progreso Mensual", expanded=True):
-                col_cal, col_meta = st.columns([1, 1.5])
+            with st.expander("📅 Mi Progreso Semanal y Asistencias", expanded=True):
+                col_cal, col_sem = st.columns([1, 1.5])
                 
                 with col_cal:
-                    fecha_busqueda = st.date_input("Seleccionar Fecha:", value=obtener_hora_peru().date(), key="cal_asesor_view")
+                    fecha_busqueda = st.date_input("Seleccionar Fecha de Consulta:", value=obtener_hora_peru().date(), key="cal_asesor_view")
                     
                 pestana_busq = MESES_ESPANOL[fecha_busqueda.month]
                 df_historial = cargar_datos_pestana(pestana_busq)
-                
                 fila_user_hist = df_historial[df_historial["Usuario"] == st.session_state.usuario_actual] if not df_historial.empty and "Usuario" in df_historial.columns else pd.DataFrame()
-                
-                f_str = fecha_busqueda.strftime("%d/%m/%Y")
-                c_e, c_rs, c_rr, c_s = f"{f_str} (Entrada)", f"{f_str} (Inicio Ref)", f"{f_str} (Fin Ref)", f"{f_str} (Salida)"
-                
-                if not fila_user_hist.empty and c_e in df_historial.columns and c_s in df_historial.columns:
-                    ve = str(fila_user_hist.iloc[0][c_e]).strip()
-                    vrs = str(fila_user_hist.iloc[0][c_rs]).strip() if c_rs in df_historial.columns else "-"
-                    vrr = str(fila_user_hist.iloc[0][c_rr]).strip() if c_rr in df_historial.columns else "-"
-                    vs = str(fila_user_hist.iloc[0][c_s]).strip()
-                    min_dia = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
+
+                # Semanas laborales de Lunes a Sábado del mes seleccionado
+                dict_semanas = obtener_semanas_laborales(fecha_busqueda.year, fecha_busqueda.month)
+                sem_sugerida_idx = obtener_num_semana_para_fecha(fecha_busqueda, dict_semanas)
+                opciones_sem_labels = [dict_semanas[k]["label"] for k in sorted(dict_semanas.keys())]
+                idx_default = max(0, min(sem_sugerida_idx - 1, len(opciones_sem_labels) - 1))
+
+                with col_sem:
+                    sem_elegida_label = st.selectbox("Seleccionar Semana a Revisar:", opciones_sem_labels, index=idx_default, key="cal_asesor_sem_sel")
+
+                sem_num_act = [k for k, v in dict_semanas.items() if v["label"] == sem_elegida_label][0]
+                resumen_semanas, total_minutos_mes, meta_mes_total = calcular_resumen_semanal_asesor(
+                    fila_user_hist, df_historial, fecha_busqueda.year, fecha_busqueda.month, dict_semanas
+                )
+                info_semana_act = resumen_semanas[sem_num_act]
+
+                # 1. Métricas de la Semana Seleccionada
+                col_w1, col_w2 = st.columns([1, 1.5])
+                with col_w1:
+                    st.metric(
+                        f"Horas {info_semana_act['label'].split(' ')[0]} {info_semana_act['label'].split(' ')[1]}", 
+                        info_semana_act["horas_str"],
+                        f"{info_semana_act['dias_asistidos']} días asistidos"
+                    )
+                with col_w2:
+                    if info_semana_act["meta_horas"] > 0:
+                        h_trabajadas = info_semana_act["minutos"] / 60.0
+                        pct_s = info_semana_act["pct"]
+                        st.markdown(f"**Meta de la Semana:** {h_trabajadas:.1f} h / {info_semana_act['meta_horas']:.0f} h (**{pct_s*100:.1f}%**)")
+                        st.progress(pct_s)
+                        min_faltan_s = int((info_semana_act["meta_horas"] * 60) - info_semana_act["minutos"])
+                        if min_faltan_s > 0:
+                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltan_s)}** para alcanzar tu meta de esta semana.")
+                        else:
+                            st.success("🎉 ¡Felicidades! Has completado tu meta de esta semana.")
+                    else:
+                        st.caption("ℹ️ Sin meta asignada para esta semana.")
+
+                # 2. Desglose detallado de asistencias de esa semana (Lunes a Sábado)
+                st.markdown(f"###### 📋 Registro de Asistencias — {info_semana_act['label']}")
+                filas_dias_sem = []
+                for dia_int in info_semana_act["dias"]:
+                    d_dt = datetime(fecha_busqueda.year, fecha_busqueda.month, dia_int).date()
+                    f_d_str = f"{dia_int:02d}/{fecha_busqueda.month:02d}/{fecha_busqueda.year}"
+                    nom_dia = DIAS_SEMANA_ESPANOL.get(d_dt.weekday(), "")
                     
-                    df_day = pd.DataFrame({
-                        "Fecha": [f_str],
-                        "Entrada": [ve],
-                        "Inicio Ref": [vrs],
-                        "Fin Ref": [vrr],
-                        "Salida": [vs],
-                        "Total Neto": [formatear_minutos_a_string(min_dia)]
+                    ce = f"{f_d_str} (Entrada)"
+                    crs = f"{f_d_str} (Inicio Ref)"
+                    crr = f"{f_d_str} (Fin Ref)"
+                    cs = f"{f_d_str} (Salida)"
+                    
+                    if not fila_user_hist.empty and ce in df_historial.columns and cs in df_historial.columns:
+                        ve = str(fila_user_hist.iloc[0][ce]).strip()
+                        vrs = str(fila_user_hist.iloc[0][crs]).strip() if crs in df_historial.columns else "-"
+                        vrr = str(fila_user_hist.iloc[0][crr]).strip() if crr in df_historial.columns else "-"
+                        vs = str(fila_user_hist.iloc[0][cs]).strip()
+                        m_d = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
+                        tot_dia_str = formatear_minutos_a_string(m_d) if (ve not in ["", "Falta", "-", "nan", "None"] or vs not in ["", "Falta", "-", "nan", "None"]) else "-"
+                    else:
+                        ve, vrs, vrr, vs, tot_dia_str = "-", "-", "-", "-", "-"
+                        
+                    filas_dias_sem.append({
+                        "Fecha": f_d_str,
+                        "Día": nom_dia,
+                        "Entrada": ve if ve not in ["nan", "None"] else "-",
+                        "Inicio Ref": vrs if vrs not in ["nan", "None"] else "-",
+                        "Fin Ref": vrr if vrr not in ["nan", "None"] else "-",
+                        "Salida": vs if vs not in ["nan", "None"] else "-",
+                        "Total Neto": tot_dia_str
                     })
-                    st.dataframe(df_day, use_container_width=True, hide_index=True)
-                else:
-                    st.caption(f"Sin registros para el {f_str} en {pestana_busq}.")
+                st.dataframe(pd.DataFrame(filas_dias_sem), use_container_width=True, hide_index=True)
 
-                total_minutos_mes = 0
-                if not fila_user_hist.empty:
-                    for col in df_historial.columns:
-                        if " (Entrada)" in col:
-                            base_f = col.replace(" (Entrada)", "")
-                            if f"{base_f} (Salida)" in df_historial.columns:
-                                e_v = str(fila_user_hist.iloc[0][col]).strip()
-                                rs_v = str(fila_user_hist.iloc[0][f"{base_f} (Inicio Ref)"]).strip() if f"{base_f} (Inicio Ref)" in df_historial.columns else ""
-                                rr_v = str(fila_user_hist.iloc[0][f"{base_f} (Fin Ref)"]).strip() if f"{base_f} (Fin Ref)" in df_historial.columns else ""
-                                s_v = str(fila_user_hist.iloc[0][f"{base_f} (Salida)"]).strip()
-                                total_minutos_mes += calcular_minutos_netos_raw(e_v, rs_v, rr_v, s_v)
-
-                meta_horas = 0
-                if not fila_user_hist.empty and "Meta" in df_historial.columns:
-                    try:
-                        meta_horas = float(fila_user_hist.iloc[0]["Meta"])
-                        if pd.isna(meta_horas) or meta_horas <= 0:
-                            meta_horas = 0
-                    except (ValueError, TypeError):
-                        meta_horas = 0
-
+                # 3. Consolidado Mensual Global
                 st.markdown("---")
                 col_m1, col_m2 = st.columns([1, 1.5])
                 with col_m1:
                     st.metric(f"Total Acumulado en {pestana_busq.capitalize()}", formatear_minutos_a_string(total_minutos_mes))
                 with col_m2:
-                    if meta_horas > 0:
+                    if meta_mes_total > 0:
                         total_horas = total_minutos_mes / 60.0
-                        pct = min(1.0, total_horas / meta_horas)
-                        st.markdown(f"**Meta Mensual:** {total_horas:.1f} h / {meta_horas:.0f} h (**{pct*100:.1f}%**)")
+                        pct = min(1.0, total_horas / meta_mes_total)
+                        st.markdown(f"**Meta Mensual Total:** {total_horas:.1f} h / {meta_mes_total:.0f} h (**{pct*100:.1f}%**)")
                         st.progress(pct)
-                        min_faltantes = int((meta_horas * 60) - total_minutos_mes)
+                        min_faltantes = int((meta_mes_total * 60) - total_minutos_mes)
                         if min_faltantes > 0:
-                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltantes)}** para alcanzar tu meta.")
+                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltantes)}** para completar la meta global del mes.")
                         else:
                             st.success("🎉 ¡Felicidades! Has completado tu meta del mes.")
+                    else:
+                        st.caption("ℹ️ Sin meta mensual asignada.")
 
         # =========================================================
         # PESTAÑA 2: REPORTE TIKTOK LIVE (IA VISION)
@@ -1477,14 +1626,19 @@ try:
                 c_adm_s = f"{f_adm_str} (Salida)"
 
                 if not df_admin.empty:
-                    sub_dia, sub_mes, sub_auditoria_tt = st.tabs([
+                    sub_dia, sub_semana, sub_mes, sub_auditoria_tt = st.tabs([
                         "📋 Asistencia Diaria", 
+                        "📅 Consolidado Semanal",
                         "📈 Consolidado Mensual del Equipo", 
                         "📸 Auditoría Capturas TikTok"
                     ])
                     
                     with sub_dia:
                         if c_adm_e in df_admin.columns and c_adm_s in df_admin.columns:
+                            dict_semanas_adm = obtener_semanas_laborales(fecha_admin.year, fecha_admin.month)
+                            sem_dia_num = obtener_num_semana_para_fecha(fecha_admin, dict_semanas_adm)
+                            meta_col_dia = f"Meta S{sem_dia_num}"
+
                             rows_reporte = []
                             for _, r in df_admin.iterrows():
                                 ve = str(r[c_adm_e]).strip() if c_adm_e in df_admin.columns else "Falta"
@@ -1493,11 +1647,20 @@ try:
                                 vs = str(r[c_adm_s]).strip() if c_adm_s in df_admin.columns else "Falta"
                                 
                                 m_netos = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
-                                meta_ind = str(r["Meta"]).split('.')[0].strip() if "Meta" in df_admin.columns and not pd.isna(r["Meta"]) else "-"
+                                
+                                meta_ind = "-"
+                                if meta_col_dia in df_admin.columns and not pd.isna(r[meta_col_dia]):
+                                    v_m = str(r[meta_col_dia]).split('.')[0].strip()
+                                    if v_m not in ["", "-", "nan", "None"]:
+                                        meta_ind = f"{v_m} h (S{sem_dia_num})"
+                                elif "Meta" in df_admin.columns and not pd.isna(r["Meta"]):
+                                    v_m = str(r["Meta"]).split('.')[0].strip()
+                                    if v_m not in ["", "-", "nan", "None"]:
+                                        meta_ind = f"{v_m} h"
                                 
                                 rows_reporte.append({
                                     "Asesor": r["Usuario"],
-                                    "Meta (H)": f"{meta_ind} h" if meta_ind != "-" else "-",
+                                    "Meta Semanal": meta_ind,
                                     "Entrada": ve,
                                     "Inicio Almuerzo": vrs,
                                     "Fin Almuerzo": vrr,
@@ -1510,48 +1673,123 @@ try:
                         else:
                             st.info(f"No hay registros de asistencia para el día **{f_adm_str}** en la pestaña {pestana_admin}.")
 
+                    with sub_semana:
+                        dict_semanas_adm = obtener_semanas_laborales(fecha_admin.year, fecha_admin.month)
+                        sem_adm_def = obtener_num_semana_para_fecha(fecha_admin, dict_semanas_adm)
+                        opcs_sem_adm = [dict_semanas_adm[k]["label"] for k in sorted(dict_semanas_adm.keys())]
+                        idx_def_adm = max(0, min(sem_adm_def - 1, len(opcs_sem_adm) - 1))
+                        
+                        col_adm_s1, col_adm_s2 = st.columns([1.5, 1])
+                        with col_adm_s1:
+                            sel_sem_label_adm = st.selectbox("Seleccionar Semana a Evaluar:", opcs_sem_adm, index=idx_def_adm, key="adm_filtro_sem")
+                            
+                        sem_num_adm = [k for k, v in dict_semanas_adm.items() if v["label"] == sel_sem_label_adm][0]
+                        info_s_adm = dict_semanas_adm[sem_num_adm]
+                        meta_col_name = info_s_adm["meta_col"]
+                        
+                        filas_semana_admin = []
+                        total_horas_equipo_sem = 0.0
+                        cumplieron_meta_cnt = 0
+                        con_meta_cnt = 0
+                        
+                        for _, r in df_admin.iterrows():
+                            u = r["Usuario"]
+                            min_asesor_sem = 0
+                            dias_asistidos_sem = 0
+                            
+                            for dia_int in info_s_adm["dias"]:
+                                f_d_str = f"{dia_int:02d}/{fecha_admin.month:02d}/{fecha_admin.year}"
+                                ce = f"{f_d_str} (Entrada)"
+                                cs = f"{f_d_str} (Salida)"
+                                if ce in df_admin.columns and cs in df_admin.columns:
+                                    ve = str(r[ce]).strip()
+                                    vrs = str(r[f"{f_d_str} (Inicio Ref)"]).strip() if f"{f_d_str} (Inicio Ref)" in df_admin.columns else ""
+                                    vrr = str(r[f"{f_d_str} (Fin Ref)"]).strip() if f"{f_d_str} (Fin Ref)" in df_admin.columns else ""
+                                    vs = str(r[cs]).strip()
+                                    m_d = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
+                                    if m_d > 0:
+                                        min_asesor_sem += m_d
+                                        dias_asistidos_sem += 1
+                                        
+                            meta_s_val = 0.0
+                            if meta_col_name in df_admin.columns and not pd.isna(r[meta_col_name]):
+                                try:
+                                    raw_v = str(r[meta_col_name]).strip()
+                                    if raw_v not in ["", "nan", "None", "-"]:
+                                        meta_s_val = float(raw_v)
+                                except (ValueError, TypeError):
+                                    meta_s_val = 0.0
+                                    
+                            horas_sem_num = min_asesor_sem / 60.0
+                            total_horas_equipo_sem += horas_sem_num
+                            
+                            if meta_s_val > 0:
+                                con_meta_cnt += 1
+                                pct_s_num = (horas_sem_num / meta_s_val) * 100.0
+                                pct_str = f"{pct_s_num:.1f}%"
+                                if pct_s_num >= 100.0:
+                                    estado_str = "✅ Meta Cumplida"
+                                    cumplieron_meta_cnt += 1
+                                elif pct_s_num >= 50.0:
+                                    estado_str = "⏳ En Progreso"
+                                elif min_asesor_sem > 0:
+                                    estado_str = "⚠️ Por Debajo"
+                                else:
+                                    estado_str = "❌ Sin Horas"
+                            else:
+                                pct_str = "N/A"
+                                estado_str = "Sin Meta" if min_asesor_sem == 0 else "Registrando"
+                                
+                            filas_semana_admin.append({
+                                "Asesor": u,
+                                "Días Asistidos": dias_asistidos_sem,
+                                "Horas de la Semana": formatear_minutos_a_string(min_asesor_sem),
+                                "Meta Semanal": f"{meta_s_val:.0f} h" if meta_s_val > 0 else "-",
+                                "% Cumplimiento": pct_str,
+                                "Estado": estado_str
+                            })
+                            
+                        with col_adm_s2:
+                            st.metric(
+                                "Total Horas Equipo en la Semana",
+                                f"{total_horas_equipo_sem:.1f} h",
+                                f"{cumplieron_meta_cnt}/{con_meta_cnt} con meta alcanzada" if con_meta_cnt > 0 else None
+                            )
+                            
+                        st.markdown(f"###### Resumen del Equipo — {info_s_adm['label']}")
+                        st.dataframe(pd.DataFrame(filas_semana_admin), use_container_width=True, hide_index=True)
+
                     with sub_mes:
                         st.markdown(f"###### Resumen Consolidado - Mes de {pestana_admin}")
-                        cols_ent = [c for c in df_admin.columns if " (Entrada)" in c]
+                        dict_semanas_adm = obtener_semanas_laborales(fecha_admin.year, fecha_admin.month)
                         resumen_mensual = []
                         
                         for _, r in df_admin.iterrows():
                             u = r["Usuario"]
-                            min_asesor = 0
-                            dias_asistidos = 0
+                            fila_user_df = df_admin[df_admin["Usuario"] == u]
+                            resumen_semanas_u, min_tot_u, meta_tot_u = calcular_resumen_semanal_asesor(
+                                fila_user_df, df_admin, fecha_admin.year, fecha_admin.month, dict_semanas_adm
+                            )
                             
-                            for ce in cols_ent:
-                                b_f = ce.replace(" (Entrada)", "")
-                                cs = f"{b_f} (Salida)"
-                                if cs in df_admin.columns:
-                                    ve = str(r[ce]).strip()
-                                    vrs = str(r[f"{b_f} (Inicio Ref)"]).strip() if f"{b_f} (Inicio Ref)" in df_admin.columns else ""
-                                    vrr = str(r[f"{b_f} (Fin Ref)"]).strip() if f"{b_f} (Fin Ref)" in df_admin.columns else ""
-                                    vs = str(r[cs]).strip()
-                                    m_d = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
-                                    if m_d > 0:
-                                        min_asesor += m_d
-                                        dias_asistidos += 1
-                                        
-                            meta_v = 0
-                            if "Meta" in df_admin.columns and not pd.isna(r["Meta"]):
-                                try:
-                                    meta_v = float(str(r["Meta"]).strip())
-                                    if pd.isna(meta_v) or meta_v <= 0:
-                                        meta_v = 0
-                                except (ValueError, TypeError):
-                                    meta_v = 0
-                                    
-                            horas_num = min_asesor / 60.0
-                            pct_str = f"{(horas_num / meta_v * 100):.1f}%" if meta_v > 0 else "N/A"
+                            dias_asistidos_mes = sum(info_w["dias_asistidos"] for info_w in resumen_semanas_u.values())
+                            horas_num = min_tot_u / 60.0
+                            pct_str = f"{(horas_num / meta_tot_u * 100):.1f}%" if meta_tot_u > 0 else "N/A"
                             
-                            resumen_mensual.append({
+                            row_m = {
                                 "Asesor / Trabajador": u,
-                                "Días Asistidos": dias_asistidos,
-                                "Horas Totales": formatear_minutos_a_string(min_asesor),
-                                "Meta Asignada": f"{meta_v:.0f} h" if meta_v > 0 else "-",
+                                "Días Asistidos": dias_asistidos_mes,
+                                "Horas Totales (Mes)": formatear_minutos_a_string(min_tot_u),
+                                "Meta Mes Total": f"{meta_tot_u:.0f} h" if meta_tot_u > 0 else "-",
                                 "% Cumplimiento": pct_str
-                            })
+                            }
+                            
+                            for w_num in sorted(dict_semanas_adm.keys()):
+                                w_h = resumen_semanas_u[w_num]["horas_str"]
+                                w_meta = resumen_semanas_u[w_num]["meta_horas"]
+                                col_lbl = f"S{w_num} ({w_meta:.0f}h)" if w_meta > 0 else f"S{w_num}"
+                                row_m[col_lbl] = w_h
+                                
+                            resumen_mensual.append(row_m)
                             
                         st.dataframe(pd.DataFrame(resumen_mensual), use_container_width=True, hide_index=True)
 

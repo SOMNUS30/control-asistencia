@@ -1626,10 +1626,11 @@ try:
                 c_adm_s = f"{f_adm_str} (Salida)"
 
                 if not df_admin.empty:
-                    sub_dia, sub_semana, sub_mes, sub_auditoria_tt = st.tabs([
+                    sub_dia, sub_semana, sub_mes, sub_tt_general, sub_auditoria_tt = st.tabs([
                         "📋 Asistencia Diaria", 
-                        "📅 Consolidado Semanal",
-                        "📈 Consolidado Mensual del Equipo", 
+                        "📅 Asistencia Semanal",
+                        "📈 Asistencia Mensual", 
+                        "📹 Reporte General TikTok",
                         "📸 Auditoría Capturas TikTok"
                     ])
                     
@@ -1792,6 +1793,166 @@ try:
                             resumen_mensual.append(row_m)
                             
                         st.dataframe(pd.DataFrame(resumen_mensual), use_container_width=True, hide_index=True)
+
+                    with sub_tt_general:
+                        st.markdown(f"###### 📹 Reporte General y Desempeño TikTok Live — Mes de {pestana_admin}")
+                        st.caption("Seguimiento de horas transmitidas, días con live y métricas de todo el equipo en TikTok.")
+                        
+                        df_tt_admin = cargar_datos_pestana_tiktok(pestana_admin)
+                        dict_semanas_adm = obtener_semanas_laborales(fecha_admin.year, fecha_admin.month)
+                        sem_act_adm = obtener_num_semana_para_fecha(fecha_admin, dict_semanas_adm)
+                        info_sem_adm = dict_semanas_adm.get(sem_act_adm, {})
+                        
+                        f_adm_str = fecha_admin.strftime("%d/%m/%Y")
+                        
+                        # Lista consolidada de asesores
+                        lista_asesores = []
+                        if not df_admin.empty and "Usuario" in df_admin.columns:
+                            lista_asesores = list(df_admin["Usuario"].dropna().unique())
+                        if not df_tt_admin.empty and "Usuario" in df_tt_admin.columns:
+                            for u_tt in df_tt_admin["Usuario"].dropna().unique():
+                                if u_tt not in lista_asesores:
+                                    lista_asesores.append(u_tt)
+                        lista_asesores = sorted(lista_asesores)
+                        
+                        if lista_asesores:
+                            # Columnas de fechas registradas en TikTok
+                            cols_fechas_tt = []
+                            if not df_tt_admin.empty:
+                                for c in df_tt_admin.columns:
+                                    partes_c = str(c).strip().split("/")
+                                    if len(partes_c) == 3:
+                                        cols_fechas_tt.append(str(c).strip())
+                                        
+                            # Ordenar fechas cronológicamente de forma segura
+                            try:
+                                cols_fechas_tt = sorted(cols_fechas_tt, key=lambda x: datetime.strptime(x, "%d/%m/%Y"))
+                            except Exception:
+                                cols_fechas_tt = sorted(cols_fechas_tt)
+                                
+                            dias_sem_actual = info_sem_adm.get("dias", [])
+                            cols_sem_actual = [f"{d:02d}/{fecha_admin.month:02d}/{fecha_admin.year}" for d in dias_sem_actual]
+                            
+                            filas_tt_resumen = []
+                            total_minutos_equipo_mes = 0
+                            total_minutos_equipo_dia = 0
+                            total_minutos_equipo_sem = 0
+                            asesores_activos_mes = 0
+                            top_asesor_nombre = "-"
+                            top_asesor_minutos = 0
+                            
+                            for u in lista_asesores:
+                                row_u = df_tt_admin[df_tt_admin["Usuario"] == u] if not df_tt_admin.empty and "Usuario" in df_tt_admin.columns else pd.DataFrame()
+                                
+                                min_u_dia = 0
+                                min_u_sem = 0
+                                min_u_mes = 0
+                                dias_con_live = 0
+                                
+                                if not row_u.empty:
+                                    # Minutos hoy
+                                    if f_adm_str in df_tt_admin.columns:
+                                        min_u_dia = parsear_string_a_minutos(row_u.iloc[0][f_adm_str])
+                                        
+                                    # Minutos semana seleccionada
+                                    for c_s in cols_sem_actual:
+                                        if c_s in df_tt_admin.columns:
+                                            min_u_sem += parsear_string_a_minutos(row_u.iloc[0][c_s])
+                                            
+                                    # Minutos mes y conteo de días activos
+                                    for c_m in cols_fechas_tt:
+                                        if c_m in df_tt_admin.columns:
+                                            m_val = parsear_string_a_minutos(row_u.iloc[0][c_m])
+                                            if m_val > 0:
+                                                min_u_mes += m_val
+                                                dias_con_live += 1
+                                                
+                                    # Meta TikTok
+                                    meta_tt_val = 0.0
+                                    meta_col_s = f"Meta S{sem_act_adm}"
+                                    if meta_col_s in df_tt_admin.columns and not pd.isna(row_u.iloc[0][meta_col_s]):
+                                        try:
+                                            meta_tt_val = float(str(row_u.iloc[0][meta_col_s]).strip())
+                                        except (ValueError, TypeError):
+                                            meta_tt_val = 0.0
+                                    elif "Meta" in df_tt_admin.columns and not pd.isna(row_u.iloc[0]["Meta"]):
+                                        try:
+                                            meta_tt_val = float(str(row_u.iloc[0]["Meta"]).strip())
+                                        except (ValueError, TypeError):
+                                            meta_tt_val = 0.0
+                                else:
+                                    meta_tt_val = 0.0
+                                    
+                                total_minutos_equipo_dia += min_u_dia
+                                total_minutos_equipo_sem += min_u_sem
+                                total_minutos_equipo_mes += min_u_mes
+                                
+                                if min_u_mes > 0:
+                                    asesores_activos_mes += 1
+                                    if min_u_mes > top_asesor_minutos:
+                                        top_asesor_minutos = min_u_mes
+                                        top_asesor_nombre = u
+                                        
+                                # Porcentaje de cumplimiento
+                                if meta_tt_val > 0:
+                                    pct_num = ((min_u_mes / 60.0) / meta_tt_val) * 100.0
+                                    pct_str = f"{pct_num:.1f}%"
+                                else:
+                                    pct_str = "N/A"
+                                    
+                                if min_u_dia > 0:
+                                    estado_tt = "🔴 Transmitió Hoy"
+                                elif min_u_sem > 0:
+                                    estado_tt = "🟡 Activo en la Semana"
+                                elif min_u_mes > 0:
+                                    estado_tt = "⚪ Activo en el Mes"
+                                else:
+                                    estado_tt = "❌ Sin Transmisiones"
+                                    
+                                nom_sem_corta = info_sem_adm.get("label", f"Semana {sem_act_adm}").split("(")[0].strip()
+                                filas_tt_resumen.append({
+                                    "Asesor": u,
+                                    f"Horas Día ({f_adm_str})": formatear_minutos_a_string(min_u_dia) if min_u_dia > 0 else "-",
+                                    f"Horas {nom_sem_corta}": formatear_minutos_a_string(min_u_sem),
+                                    "Días con Live": dias_con_live,
+                                    "Total Horas Mes": formatear_minutos_a_string(min_u_mes),
+                                    "Meta TikTok": f"{meta_tt_val:.0f} h" if meta_tt_val > 0 else "-",
+                                    "% Cumplimiento": pct_str,
+                                    "Estado": estado_tt
+                                })
+                                
+                            # Métricas visuales
+                            col_tt_k1, col_tt_k2, col_tt_k3, col_tt_k4 = st.columns(4)
+                            with col_tt_k1:
+                                st.metric("Total Mes Equipo", formatear_minutos_a_string(total_minutos_equipo_mes), f"{asesores_activos_mes}/{len(lista_asesores)} asesores activos")
+                            with col_tt_k2:
+                                st.metric(f"Total {info_sem_adm.get('label', 'Semana').split('(')[0].strip()}", formatear_minutos_a_string(total_minutos_equipo_sem))
+                            with col_tt_k3:
+                                st.metric(f"Total Día ({f_adm_str})", formatear_minutos_a_string(total_minutos_equipo_dia))
+                            with col_tt_k4:
+                                st.metric("Top Asesor TikTok", top_asesor_nombre if top_asesor_nombre != "-" else "Sin datos", formatear_minutos_a_string(top_asesor_minutos) if top_asesor_minutos > 0 else None)
+                                
+                            st.markdown("---")
+                            st.markdown(f"###### 📊 Tabla Consolidada de Todo el Equipo — TikTok Live ({pestana_admin})")
+                            st.dataframe(pd.DataFrame(filas_tt_resumen), use_container_width=True, hide_index=True)
+                            
+                            # Matriz Diaria detallada
+                            if cols_fechas_tt:
+                                with st.expander("📅 Ver Matriz Diaria Detallada de TikTok (Día por Día)", expanded=False):
+                                    matriz_tt = []
+                                    for u in lista_asesores:
+                                        row_u = df_tt_admin[df_tt_admin["Usuario"] == u] if not df_tt_admin.empty and "Usuario" in df_tt_admin.columns else pd.DataFrame()
+                                        fila_m = {"Asesor": u}
+                                        for c_f in cols_fechas_tt:
+                                            if not row_u.empty and c_f in df_tt_admin.columns:
+                                                v_c = str(row_u.iloc[0][c_f]).strip()
+                                                fila_m[c_f] = v_c if v_c not in ["", "nan", "None", "0 h 0 min", "-"] else "-"
+                                            else:
+                                                fila_m[c_f] = "-"
+                                        matriz_tt.append(fila_m)
+                                    st.dataframe(pd.DataFrame(matriz_tt), use_container_width=True, hide_index=True)
+                        else:
+                            st.info(f"No se encontraron datos en la hoja de TikTok para el mes de {pestana_admin}.")
 
                     with sub_auditoria_tt:
                         st.markdown("###### 📸 Historial y Auditoría de Capturas TikTok")

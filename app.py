@@ -986,6 +986,79 @@ try:
         except Exception:
             return pd.DataFrame()
 
+    def eliminar_reporte_evidencia_tiktok(usuario, fecha_live, fecha_registro, file_id=""):
+        """
+        Elimina un reporte de la pestaña EVIDENCIAS_CAPTURA en REPORTES TIKTOK
+        y recalcula automáticamente el acumulado de horas de ese día en la hoja del mes.
+        """
+        try:
+            doc_tt = gc.open("REPORTES TIKTOK")
+            wks_ev = doc_tt.worksheet("EVIDENCIAS_CAPTURA")
+            
+            all_rows = wks_ev.get_all_values()
+            if len(all_rows) < 2:
+                return False, "La hoja de evidencias está vacía."
+                
+            headers = [str(h).strip() for h in all_rows[0]]
+            idx_freg = headers.index("Fecha Registro") if "Fecha Registro" in headers else -1
+            idx_flive = headers.index("Fecha Live") if "Fecha Live" in headers else -1
+            idx_usr = headers.index("Usuario") if "Usuario" in headers else -1
+            idx_fid = headers.index("Drive File ID") if "Drive File ID" in headers else -1
+            idx_tot = headers.index("Tiempo Total") if "Tiempo Total" in headers else -1
+            
+            fila_a_borrar = -1
+            minutos_restantes_dia = 0
+            
+            # Buscar la fila exacta a borrar
+            for row_idx, r in enumerate(all_rows[1:], start=2):
+                u_val = str(r[idx_usr]).strip() if idx_usr != -1 and len(r) > idx_usr else ""
+                fl_val = str(r[idx_flive]).strip() if idx_flive != -1 and len(r) > idx_flive else ""
+                fr_val = str(r[idx_freg]).strip() if idx_freg != -1 and len(r) > idx_freg else ""
+                fid_val = str(r[idx_fid]).strip() if idx_fid != -1 and len(r) > idx_fid else ""
+                
+                es_esta_fila = False
+                if file_id and fid_val and fid_val == file_id:
+                    es_esta_fila = True
+                elif u_val == usuario and fl_val == fecha_live and fr_val == fecha_registro:
+                    es_esta_fila = True
+                    
+                if es_esta_fila and fila_a_borrar == -1:
+                    fila_a_borrar = row_idx
+                else:
+                    # Sumar los minutos de los otros reportes del mismo usuario en ese mismo día
+                    if u_val == usuario and fl_val == fecha_live:
+                        t_str = str(r[idx_tot]).strip() if idx_tot != -1 and len(r) > idx_tot else ""
+                        minutos_restantes_dia += parsear_string_a_minutos(t_str)
+                        
+            if fila_a_borrar == -1:
+                return False, "No se encontró el registro a eliminar."
+                
+            # 1. Eliminar la fila de EVIDENCIAS_CAPTURA
+            wks_ev.delete_rows(fila_a_borrar)
+            
+            # 2. Recalcular y actualizar la celda en la hoja del mes correspondiente
+            try:
+                partes_f = fecha_live.split("/")
+                if len(partes_f) == 3:
+                    num_mes = int(partes_f[1])
+                    pestana_mes = MESES_ESPANOL.get(num_mes)
+                    if pestana_mes:
+                        try:
+                            wks_mes = doc_tt.worksheet(pestana_mes)
+                            df_mes_tt = get_as_dataframe(wks_mes).dropna(how="all")
+                            
+                            nuevo_acumulado_str = formatear_minutos_a_string(minutos_restantes_dia) if minutos_restantes_dia > 0 else "0 h 0 min"
+                            actualizar_marcado_seguro(wks_mes, df_mes_tt, usuario, {fecha_live: nuevo_acumulado_str})
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+                
+            st.cache_data.clear()
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
     hora_peru_actual = obtener_hora_peru()
     mes_actual_num = hora_peru_actual.month
     nombre_pestana = MESES_ESPANOL[mes_actual_num]
@@ -1960,13 +2033,19 @@ try:
                         
                         df_auditoria = cargar_evidencias_tiktok()
                         if not df_auditoria.empty and "Usuario" in df_auditoria.columns:
-                            col_f_usr, col_f_dia = st.columns([1.5, 1.5])
+                            col_f_usr, col_f_dia, col_f_ref = st.columns([1.3, 1.3, 0.8])
                             with col_f_usr:
                                 lista_usrs = ["Todos"] + sorted(list(df_auditoria["Usuario"].dropna().unique()))
                                 sel_usr = st.selectbox("Filtrar por Asesor:", lista_usrs, key="aud_filtro_asesor")
                             with col_f_dia:
                                 lista_fechas = ["Todas"] + sorted(list(df_auditoria["Fecha Live"].dropna().unique()), reverse=True)
                                 sel_fecha = st.selectbox("Filtrar por Fecha del Live:", lista_fechas, key="aud_filtro_fecha")
+                            with col_f_ref:
+                                st.write("")
+                                st.write("")
+                                if st.button("🔄 Refrescar", use_container_width=True, help="Recargar datos directamente desde Google Sheets"):
+                                    st.cache_data.clear()
+                                    st.rerun()
                                 
                             df_aud_filtrada = df_auditoria.copy()
                             if sel_usr != "Todos":
@@ -1977,7 +2056,7 @@ try:
                             st.caption(f"Mostrando **{len(df_aud_filtrada)}** capturas registradas:")
                             
                             # Mostrar las más recientes primero
-                            for _, r_aud in df_aud_filtrada.iloc[::-1].iterrows():
+                            for idx_ev, (_, r_aud) in enumerate(df_aud_filtrada.iloc[::-1].iterrows()):
                                 a_usr = str(r_aud.get("Usuario", "-"))
                                 a_flive = str(r_aud.get("Fecha Live", "-"))
                                 a_freg = str(r_aud.get("Fecha Registro", "-"))
@@ -1995,10 +2074,36 @@ try:
                                         st.markdown(f"**Tiempo Reconocido:** `{a_tot}`")
                                         st.markdown(f"**Transmisiones:** {a_det}")
                                         st.write("")
-                                        if a_link and a_link.startswith("http"):
-                                            st.link_button("🔍 Abrir Foto en Google Drive", a_link, use_container_width=True)
-                                        else:
-                                            st.caption("Sin enlace directo a Drive.")
+                                        
+                                        col_btn_drive, col_btn_del = st.columns([1.2, 1])
+                                        with col_btn_drive:
+                                            if a_link and a_link.startswith("http"):
+                                                st.link_button("🔍 Ver en Drive", a_link, use_container_width=True)
+                                            else:
+                                                st.caption("Sin enlace directo a Drive.")
+                                                
+                                        with col_btn_del:
+                                            btn_del_key = f"del_btn_{idx_ev}_{a_fid[:6] if a_fid else idx_ev}"
+                                            if st.button("🗑️ Eliminar", key=btn_del_key, use_container_width=True, help="Eliminar este reporte del sistema y recalcular horas acumuladas"):
+                                                st.session_state[f"confirm_{btn_del_key}"] = True
+                                                
+                                        if st.session_state.get(f"confirm_{btn_del_key}", False):
+                                            st.warning("⚠️ ¿Eliminar este reporte del sistema?")
+                                            col_c1, col_c2 = st.columns(2)
+                                            with col_c1:
+                                                if st.button("Sí, Eliminar", key=f"yes_{btn_del_key}", type="primary", use_container_width=True):
+                                                    with st.spinner("Eliminando y recalculando horas..."):
+                                                        ok_del, err_del = eliminar_reporte_evidencia_tiktok(a_usr, a_flive, a_freg, a_fid)
+                                                        if ok_del:
+                                                            st.session_state.pop(f"confirm_{btn_del_key}", None)
+                                                            st.success("✅ Reporte eliminado.")
+                                                            st.rerun()
+                                                        else:
+                                                            st.error(f"Error: {err_del}")
+                                            with col_c2:
+                                                if st.button("Cancelar", key=f"no_{btn_del_key}", use_container_width=True):
+                                                    st.session_state.pop(f"confirm_{btn_del_key}", None)
+                                                    st.rerun()
                                             
                                     with col_img_aud:
                                         if a_fid and a_fid not in ["nan", "None", ""]:

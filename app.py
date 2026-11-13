@@ -554,19 +554,21 @@ def parsear_string_a_minutos(cadena_tiempo):
 
 def obtener_semanas_laborales(year, month):
     """
-    Divide el mes en semanas laborales de Lunes a Sábado (omitiendo Domingos).
-    Retorna un diccionario {semana_num: {'num': int, 'dias': [day_ints], 'inicio': date, 'fin': date, 'label': str, 'meta_col': str}}
+    Divide el mes en semanas laborales que cierran los Domingos a las 11:59 PM.
+    Cada semana inicia en Lunes y concluye en Domingo, de modo que las horas que los asesores
+    trabajan o recuperan los domingos se sumen automáticamente a la meta de esa semana.
     """
     num_days = calendar.monthrange(year, month)[1]
     semanas = {}
     current_w = 1
     for day in range(1, num_days + 1):
         d = datetime(year, month, day).date()
-        if d.weekday() == 6:  # Domingo no se labora
-            continue
+        # Si es lunes y ya tenemos días en la semana previa:
         if d.weekday() == 0 and day > 1:
             if current_w in semanas and len(semanas[current_w]) > 0:
-                current_w += 1
+                # Si el día 1 fue domingo, se une con la semana 1
+                if day > 2 or (day == 2 and datetime(year, month, 1).date().weekday() != 6):
+                    current_w += 1
         if current_w not in semanas:
             semanas[current_w] = []
         semanas[current_w].append(day)
@@ -587,15 +589,11 @@ def obtener_semanas_laborales(year, month):
     return resultado
 
 def obtener_num_semana_para_fecha(fecha_d, dict_semanas):
-    """Determina a qué semana laboral pertenece una fecha del mes."""
+    """Determina a qué semana pertenece una fecha del mes (incluyendo Domingos)."""
     day = fecha_d.day
     for w_idx, s_info in dict_semanas.items():
         if day in s_info["dias"]:
             return w_idx
-    if fecha_d.weekday() == 6 and day > 1:
-        for w_idx, s_info in dict_semanas.items():
-            if (day - 1) in s_info["dias"]:
-                return w_idx
     return 1
 
 def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas):

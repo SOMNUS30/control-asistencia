@@ -389,40 +389,141 @@ def inyectar_estilos():
             box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
         }
 
-        /* ================= PANTALLA DE LOGIN ================= */
-        .login-wrapper {
-            max-width: 440px !important;
-            margin: 40px auto !important;
+        /* ================= PANTALLA DE LOGIN MODERNA (PC Y MÓVIL) ================= */
+        .login-card-header {
             background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
-            border-radius: 24px !important;
-            padding: 40px 32px !important;
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07) !important;
+            border-bottom: none !important;
+            border-radius: 24px 24px 0 0 !important;
+            padding: 38px 28px 12px 28px !important;
             text-align: center !important;
+            box-shadow: 0 10px 25px -10px rgba(15, 23, 42, 0.05) !important;
+            margin-top: 25px !important;
         }
-        .login-icon {
-            width: 64px !important;
-            height: 64px !important;
+        .login-badge-pill {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            background: #eff6ff !important;
+            color: #2563eb !important;
+            border: 1px solid #dbeafe !important;
+            padding: 4px 14px !important;
+            border-radius: 9999px !important;
+            font-size: 11.5px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            margin-bottom: 18px !important;
+        }
+        .login-icon-box {
+            width: 70px !important;
+            height: 70px !important;
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
             border-radius: 20px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 28px !important;
-            color: white !important;
-            margin-bottom: 20px !important;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important;
+            font-size: 32px !important;
+            color: #ffffff !important;
+            margin-bottom: 16px !important;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35) !important;
         }
-        .login-title {
+        .login-card-title {
             font-size: 24px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
-            margin-bottom: 6px !important;
+            margin: 0 0 8px 0 !important;
+            letter-spacing: -0.025em !important;
+            line-height: 1.25 !important;
         }
-        .login-desc {
-            font-size: 14px !important;
+        .login-card-subtitle {
+            font-size: 13.5px !important;
             color: #64748b !important;
-            margin-bottom: 28px !important;
+            margin: 0 !important;
+            line-height: 1.5 !important;
+        }
+        
+        /* Contenedor del Formulario que se fusiona con la cabecera */
+        form[aria-label="form_login"],
+        div[data-testid="stForm"] {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-radius: 0 0 24px 24px !important;
+            padding: 12px 28px 30px 28px !important;
+            box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.06) !important;
+            margin-bottom: 35px !important;
+        }
+        form[aria-label="form_login"] label,
+        div[data-testid="stForm"] label {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #334155 !important;
+            margin-bottom: 4px !important;
+        }
+        form[aria-label="form_login"] input,
+        div[data-testid="stForm"] input {
+            height: 48px !important;
+            font-size: 15px !important;
+            border-radius: 12px !important;
+            border: 1.5px solid #e2e8f0 !important;
+            background-color: #f8fafc !important;
+            transition: all 0.2s ease !important;
+        }
+        form[aria-label="form_login"] input:focus,
+        div[data-testid="stForm"] input:focus {
+            border-color: #3b82f6 !important;
+            background-color: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        }
+        form[aria-label="form_login"] button[kind="primary"],
+        div[data-testid="stForm"] button[kind="primary"] {
+            height: 48px !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            border-radius: 12px !important;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important;
+            transition: all 0.2s ease !important;
+            margin-top: 14px !important;
+            letter-spacing: 0.02em !important;
+        }
+        form[aria-label="form_login"] button[kind="primary"]:hover,
+        div[data-testid="stForm"] button[kind="primary"]:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.4) !important;
+        }
+        .login-security-badge {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            color: #94a3b8 !important;
+            font-size: 12px !important;
+            margin-top: 16px !important;
+            text-align: center !important;
+        }
+
+        /* Optimización responsiva para móviles */
+        @media (max-width: 768px) {
+            .login-card-header {
+                padding: 26px 18px 10px 18px !important;
+                margin-top: 10px !important;
+                border-radius: 20px 20px 0 0 !important;
+            }
+            form[aria-label="form_login"],
+            div[data-testid="stForm"] {
+                padding: 10px 18px 24px 18px !important;
+                border-radius: 0 0 20px 20px !important;
+            }
+            .login-card-title {
+                font-size: 21px !important;
+            }
+            .login-icon-box {
+                width: 58px !important;
+                height: 58px !important;
+                font-size: 26px !important;
+            }
         }
 
         /* ================= EXPANDERS Y DATAFRAMES ================= */
@@ -1122,10 +1223,11 @@ try:
         
         with col_login:
             st.markdown("""
-                <div class="login-wrapper">
-                    <div class="login-icon">⏱️</div>
-                    <div class="login-title">Control de Asistencia</div>
-                    <div class="login-desc">Ingresa tu código de asesor para registrar tu jornada laboral o reportes de TikTok.</div>
+                <div class="login-card-header">
+                    <div class="login-badge-pill">🔒 Portal de Colaboradores</div>
+                    <div class="login-icon-box">⏱️</div>
+                    <h1 class="login-card-title">Control de Asistencia</h1>
+                    <p class="login-card-subtitle">Ingresa tu código de asesor para registrar tu jornada laboral o reportes de TikTok.</p>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -1138,6 +1240,12 @@ try:
                 )
                 
                 btn_ingresar = st.form_submit_button("INICIAR SESIÓN", use_container_width=True, type="primary")
+                
+                st.markdown("""
+                    <div class="login-security-badge">
+                        <span>🛡️</span> Acceso seguro • Verificación por geolocalización
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 if btn_ingresar:
                     if not codigo_ingresado or str(codigo_ingresado).strip() == "":

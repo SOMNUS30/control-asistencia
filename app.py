@@ -8,8 +8,24 @@ import math
 import io
 import json
 import base64
+import os
 import urllib.request
 from PIL import Image
+
+# Función para cargar el logo de Ecosol en base64 de forma segura
+def obtener_logo_base64():
+    posibles_rutas = [
+        "logo_ecosol.png",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_ecosol.png") if "__file__" in globals() else "logo_ecosol.png"
+    ]
+    for r in posibles_rutas:
+        if os.path.exists(r):
+            try:
+                with open(r, "rb") as f:
+                    return base64.b64encode(f.read()).decode("utf-8")
+            except Exception:
+                continue
+    return None
 
 # Importación segura de geolocalización con soporte para reseteo dinámico
 try:
@@ -40,8 +56,8 @@ except ImportError:
 # CONFIGURACIÓN DE PÁGINA Y CONSTANTES
 # =========================================================
 st.set_page_config(
-    page_title="Control de Asistencia & TikTok Live",
-    page_icon="⏱️",
+    page_title="Control de asistencia Ecosol",
+    page_icon="🌿",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -188,10 +204,17 @@ def inyectar_estilos():
             align-items: center !important;
             gap: 12px !important;
         }
+        .app-logo-img {
+            height: 42px !important;
+            width: auto !important;
+            max-width: 48px !important;
+            object-fit: contain !important;
+            border-radius: 8px !important;
+        }
         .app-logo-badge {
             width: 42px !important;
             height: 42px !important;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
             color: #ffffff !important;
             border-radius: 12px !important;
             display: flex !important;
@@ -199,7 +222,7 @@ def inyectar_estilos():
             justify-content: center !important;
             font-weight: 800 !important;
             font-size: 20px !important;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
         }
         .app-title {
             font-size: 16px !important;
@@ -214,9 +237,9 @@ def inyectar_estilos():
             margin: 0 !important;
         }
         .role-badge-admin {
-            background: #eff6ff !important;
-            color: #2563eb !important;
-            border: 1px solid #bfdbfe !important;
+            background: #f0fdf4 !important;
+            color: #15803d !important;
+            border: 1px solid #bbf7d0 !important;
             padding: 2px 8px !important;
             border-radius: 6px !important;
             font-size: 11px !important;
@@ -256,9 +279,9 @@ def inyectar_estilos():
             color: #0f172a !important;
         }
         .step-card.active {
-            border-color: #3b82f6 !important;
-            background: #eff6ff !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+            border-color: #16a34a !important;
+            background: #f0fdf4 !important;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
         }
         .step-card.completed {
             border-color: #10b981 !important;
@@ -341,20 +364,24 @@ def inyectar_estilos():
             box-shadow: 0 6px 14px rgba(0,0,0,0.1) !important;
         }
         
-        /* Solo botones activos/habilitados llevan fondo azul y texto blanco */
+        /* Botones primarios (Entrada, Salida, etc.) con tema Verde Ecosol y texto BLANCO */
         div.stButton > button[kind="primary"]:not(:disabled),
-        div.stButton > button:not(:disabled):has(div:contains("Entrada")),
-        div.stButton > button:not(:disabled):has(div:contains("Salida")),
-        div.stButton > button:not(:disabled):has(div:contains("INICIAR")) {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        div.stButton > button[data-testid="baseButton-primary"]:not(:disabled) {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
             color: #ffffff !important;
             border: none !important;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
         }
         div.stButton > button[kind="primary"]:not(:disabled) *,
-        div.stButton > button:not(:disabled):has(div:contains("Entrada")) *,
-        div.stButton > button:not(:disabled):has(div:contains("Salida")) *,
-        div.stButton > button:not(:disabled):has(div:contains("INICIAR")) * {
+        div.stButton > button[data-testid="baseButton-primary"]:not(:disabled) * {
             color: #ffffff !important;
+            fill: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        div.stButton > button[kind="primary"]:not(:disabled):hover,
+        div.stButton > button[data-testid="baseButton-primary"]:not(:disabled):hover {
+            background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+            box-shadow: 0 8px 18px rgba(22, 163, 74, 0.35) !important;
         }
 
         /* Cuando el botón está deshabilitado a la espera del GPS, se mantiene legible */
@@ -385,48 +412,49 @@ def inyectar_estilos():
         }
         .stTabs [aria-selected="true"] {
             background-color: #ffffff !important;
-            color: #0f172a !important;
+            color: #15803d !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+            font-weight: 700 !important;
         }
 
-        /* ================= PANTALLA DE LOGIN MODERNA (PC Y MÓVIL) ================= */
+        /* ================= PANTALLA DE LOGIN ECOSOL (PC Y MÓVIL) ================= */
         .login-card-header {
             background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
             border-bottom: none !important;
             border-radius: 24px 24px 0 0 !important;
-            padding: 38px 28px 12px 28px !important;
+            padding: 32px 28px 12px 28px !important;
             text-align: center !important;
             box-shadow: 0 10px 25px -10px rgba(15, 23, 42, 0.05) !important;
             margin-top: 25px !important;
+        }
+        .login-logo-container {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            margin: 0 auto 12px auto !important;
+        }
+        .login-logo-img {
+            max-width: 140px !important;
+            height: auto !important;
+            max-height: 125px !important;
+            object-fit: contain !important;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.05)) !important;
         }
         .login-badge-pill {
             display: inline-flex !important;
             align-items: center !important;
             gap: 6px !important;
-            background: #eff6ff !important;
-            color: #2563eb !important;
-            border: 1px solid #dbeafe !important;
-            padding: 4px 14px !important;
+            background: #f0fdf4 !important;
+            color: #15803d !important;
+            border: 1px solid #bbf7d0 !important;
+            padding: 5px 14px !important;
             border-radius: 9999px !important;
             font-size: 11.5px !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
-            margin-bottom: 18px !important;
-        }
-        .login-icon-box {
-            width: 70px !important;
-            height: 70px !important;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-            border-radius: 20px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 32px !important;
-            color: #ffffff !important;
-            margin-bottom: 16px !important;
-            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35) !important;
+            margin-bottom: 14px !important;
         }
         .login-card-title {
             font-size: 24px !important;
@@ -456,49 +484,65 @@ def inyectar_estilos():
         }
         form[aria-label="form_login"] label,
         div[data-testid="stForm"] label {
-            font-size: 13px !important;
+            font-size: 13.5px !important;
             font-weight: 600 !important;
-            color: #334155 !important;
-            margin-bottom: 4px !important;
+            color: #1e293b !important;
+            margin-bottom: 6px !important;
         }
         form[aria-label="form_login"] input,
         div[data-testid="stForm"] input {
             height: 48px !important;
             font-size: 15px !important;
             border-radius: 12px !important;
-            border: 1.5px solid #e2e8f0 !important;
+            border: 1.5px solid #cbd5e1 !important;
             background-color: #f8fafc !important;
+            color: #0f172a !important;
             transition: all 0.2s ease !important;
         }
         form[aria-label="form_login"] input:focus,
         div[data-testid="stForm"] input:focus {
-            border-color: #3b82f6 !important;
+            border-color: #16a34a !important;
             background-color: #ffffff !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2) !important;
         }
-        form[aria-label="form_login"] button[kind="primary"],
+        
+        /* Botón de Iniciar Sesión Ecosol: ALTO CONTRASTE CON TEXTO BLANCO PURO */
+        form[aria-label="form_login"] button,
+        div[data-testid="stFormSubmitButton"] button,
         div[data-testid="stForm"] button[kind="primary"] {
             height: 48px !important;
             font-size: 15px !important;
             font-weight: 700 !important;
             border-radius: 12px !important;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important;
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+            border: none !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 20px rgba(22, 163, 74, 0.35) !important;
             transition: all 0.2s ease !important;
             margin-top: 14px !important;
-            letter-spacing: 0.02em !important;
+            letter-spacing: 0.03em !important;
         }
-        form[aria-label="form_login"] button[kind="primary"]:hover,
+        /* Fuerza absoluta para que cualquier elemento interno (p, span, div) sea blanco brillante */
+        form[aria-label="form_login"] button *,
+        div[data-testid="stFormSubmitButton"] button *,
+        div[data-testid="stForm"] button[kind="primary"] * {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        form[aria-label="form_login"] button:hover,
+        div[data-testid="stFormSubmitButton"] button:hover,
         div[data-testid="stForm"] button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
             transform: translateY(-1px) !important;
-            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.4) !important;
+            box-shadow: 0 12px 24px rgba(22, 163, 74, 0.45) !important;
         }
         .login-security-badge {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             gap: 6px !important;
-            color: #94a3b8 !important;
+            color: #64748b !important;
             font-size: 12px !important;
             margin-top: 16px !important;
             text-align: center !important;
@@ -507,9 +551,12 @@ def inyectar_estilos():
         /* Optimización responsiva para móviles */
         @media (max-width: 768px) {
             .login-card-header {
-                padding: 26px 18px 10px 18px !important;
+                padding: 24px 18px 10px 18px !important;
                 margin-top: 10px !important;
                 border-radius: 20px 20px 0 0 !important;
+            }
+            .login-logo-img {
+                max-width: 115px !important;
             }
             form[aria-label="form_login"],
             div[data-testid="stForm"] {
@@ -518,11 +565,6 @@ def inyectar_estilos():
             }
             .login-card-title {
                 font-size: 21px !important;
-            }
-            .login-icon-box {
-                width: 58px !important;
-                height: 58px !important;
-                font-size: 26px !important;
             }
         }
 
@@ -1222,11 +1264,14 @@ try:
         col_esp_izq, col_login, col_esp_der = st.columns([1, 1.4, 1])
         
         with col_login:
-            st.markdown("""
+            logo_b64 = obtener_logo_base64()
+            logo_html = f'<div class="login-logo-container"><img src="data:image/png;base64,{logo_b64}" class="login-logo-img" alt="Ecosol Inmobiliaria & Constructora"></div>' if logo_b64 else ''
+            
+            st.markdown(f"""
                 <div class="login-card-header">
+                    {logo_html}
                     <div class="login-badge-pill">🔒 Portal de Colaboradores</div>
-                    <div class="login-icon-box">⏱️</div>
-                    <h1 class="login-card-title">Control de Asistencia</h1>
+                    <h1 class="login-card-title">Control de asistencia Ecosol</h1>
                     <p class="login-card-subtitle">Ingresa tu código de asesor para registrar tu jornada laboral o reportes de TikTok.</p>
                 </div>
             """, unsafe_allow_html=True)
@@ -1275,13 +1320,15 @@ try:
         col_nav_info, col_nav_btn = st.columns([3.5, 1])
         with col_nav_info:
             role_badge = '<span class="role-badge-admin">Administrador</span>' if es_admin else '<span class="role-badge-asesor">Asesor</span>'
+            logo_nav_b64 = obtener_logo_base64()
+            logo_nav_html = f'<img src="data:image/png;base64,{logo_nav_b64}" class="app-logo-img" alt="Ecosol">' if logo_nav_b64 else '<div class="app-logo-badge">🏢</div>'
             st.markdown(f"""
                 <div class="app-navbar">
                     <div class="app-brand">
-                        <div class="app-logo-badge">⏱️</div>
+                        {logo_nav_html}
                         <div>
                             <p class="app-title">{st.session_state.usuario_actual} {role_badge}</p>
-                            <p class="app-subtitle">🇵🇪 Hora Perú: <strong>{hora_live_str}</strong> • Sede Ica</p>
+                            <p class="app-subtitle">🇵🇪 Control de Asistencia Ecosol • Hora Perú: <strong>{hora_live_str}</strong> • Sede Ica</p>
                         </div>
                     </div>
                 </div>

@@ -599,10 +599,15 @@ def obtener_num_semana_para_fecha(fecha_d, dict_semanas):
 def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas):
     """
     Calcula las horas trabajadas por semana y las metas semanales de un asesor.
-    Retorna: (resumen_por_semana, total_mes_min, meta_mes_total)
+    Regla de cierre semanal:
+    - Semana 1: Todas las horas trabajadas se acumulan al total general (incluso si hubo exceso).
+    - Semana 2 en adelante: El domingo cierra la semana. Las horas que superen la meta semanal
+      no se transfieren ni suman a otras semanas ni al acumulado mensual de la meta.
+    Retorna: (resumen_por_semana, total_mes_computable_min, meta_mes_total)
     """
     resumen = {}
-    total_mes_min = 0
+    total_mes_computable_min = 0
+    total_mes_fisico_min = 0
     meta_mes_total = 0
     tiene_metas_semanales = False
 
@@ -636,7 +641,20 @@ def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas
             except (ValueError, TypeError):
                 meta_s_val = 0.0
 
-        total_mes_min += min_semana
+        meta_minutos_sem = int(meta_s_val * 60) if meta_s_val > 0 else 0
+
+        # Regla de cómputo de cierre:
+        # En Semana 1: se suman todos los minutos trabajados al general.
+        # En Semana 2 en adelante: el domingo cierra y las horas de más NO se suman a la meta mensual.
+        if w_idx == 1 or meta_minutos_sem == 0:
+            minutos_computables_sem = min_semana
+            minutos_exceso_sem = 0
+        else:
+            minutos_computables_sem = min(min_semana, meta_minutos_sem)
+            minutos_exceso_sem = max(0, min_semana - meta_minutos_sem)
+
+        total_mes_computable_min += minutos_computables_sem
+        total_mes_fisico_min += min_semana
         meta_mes_total += max(0.0, meta_s_val)
 
         pct_s = min(1.0, (min_semana / 60.0) / meta_s_val) if meta_s_val > 0 else 0.0
@@ -644,7 +662,11 @@ def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas
             "num": w_idx,
             "label": s_info["label"],
             "minutos": min_semana,
+            "minutos_computables": minutos_computables_sem,
+            "minutos_exceso": minutos_exceso_sem,
             "horas_str": formatear_minutos_a_string(min_semana),
+            "horas_computables_str": formatear_minutos_a_string(minutos_computables_sem),
+            "horas_exceso_str": formatear_minutos_a_string(minutos_exceso_sem),
             "meta_horas": meta_s_val,
             "pct": pct_s,
             "dias_asistidos": dias_asistidos_sem,
@@ -662,7 +684,7 @@ def calcular_resumen_semanal_asesor(fila_user, df_mes, year, month, dict_semanas
         except (ValueError, TypeError):
             pass
 
-    return resumen, total_mes_min, meta_mes_total
+    return resumen, total_mes_computable_min, meta_mes_total
 
 def calcular_duracion_rango_tiktok(inicio_str, fin_str):
     """Calcula duración en minutos entre inicio y fin de un live."""
@@ -1418,6 +1440,8 @@ try:
                             st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltan_s)}** para alcanzar tu meta de esta semana.")
                         else:
                             st.success("🎉 ¡Felicidades! Has completado tu meta de esta semana.")
+                            if info_semana_act.get("minutos_exceso", 0) > 0:
+                                st.caption(f"ℹ️ Exceso: **+{info_semana_act['horas_exceso_str']}** (a partir de la Semana 2, las horas excedentes al cierre no se acumulan a otras semanas).")
                     else:
                         st.caption("ℹ️ Sin meta asignada para esta semana.")
 
@@ -1800,7 +1824,11 @@ try:
                                 pct_s_num = (horas_sem_num / meta_s_val) * 100.0
                                 pct_str = f"{pct_s_num:.1f}%"
                                 if pct_s_num >= 100.0:
-                                    estado_str = "✅ Meta Cumplida"
+                                    if sem_num_adm >= 2 and horas_sem_num > meta_s_val:
+                                        exceso_h = horas_sem_num - meta_s_val
+                                        estado_str = f"✅ Cumplida (+{exceso_h:.1f}h cerrado)"
+                                    else:
+                                        estado_str = "✅ Meta Cumplida"
                                     cumplieron_meta_cnt += 1
                                 elif pct_s_num >= 50.0:
                                     estado_str = "⏳ En Progreso"

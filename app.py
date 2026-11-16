@@ -1551,17 +1551,38 @@ try:
             # =========================================================
             # CONSULTA DE HISTORIAL Y METAS SEMANALES / MENSUALES
             # =========================================================
-            with st.expander("📅 Mi Progreso Semanal y Asistencias", expanded=True):
-                col_cal, col_sem = st.columns([1, 1.5])
-                
-                with col_cal:
-                    fecha_busqueda = st.date_input("Seleccionar Fecha de Consulta:", value=obtener_hora_peru().date(), key="cal_asesor_view")
+            expander_title = "📅 Progreso Semanal y Asistencias de Asesores" if es_admin else "📅 Mi Progreso Semanal y Asistencias"
+            with st.expander(expander_title, expanded=True):
+                if es_admin:
+                    col_user, col_cal, col_sem = st.columns([1.6, 1, 1.4])
+                    with col_cal:
+                        fecha_busqueda = st.date_input("Seleccionar Fecha de Consulta:", value=obtener_hora_peru().date(), key="cal_asesor_view")
                     
-                pestana_busq = MESES_ESPANOL[fecha_busqueda.month]
-                df_historial = cargar_datos_pestana(pestana_busq)
-                fila_user_hist = df_historial[df_historial["Usuario"] == st.session_state.usuario_actual] if not df_historial.empty and "Usuario" in df_historial.columns else pd.DataFrame()
+                    pestana_busq = MESES_ESPANOL[fecha_busqueda.month]
+                    df_historial = cargar_datos_pestana(pestana_busq)
+                    
+                    # Lista de asesores disponibles en la hoja consultada
+                    if not df_historial.empty and "Usuario" in df_historial.columns:
+                        lista_asesores = [u for u in df_historial["Usuario"].dropna().unique().tolist() if str(u).strip() not in ["", "nan", "None"]]
+                    elif not df.empty and "Usuario" in df.columns:
+                        lista_asesores = [u for u in df["Usuario"].dropna().unique().tolist() if str(u).strip() not in ["", "nan", "None"]]
+                    else:
+                        lista_asesores = [st.session_state.usuario_actual]
+                    
+                    with col_user:
+                        idx_default_u = lista_asesores.index(st.session_state.usuario_actual) if st.session_state.usuario_actual in lista_asesores else 0
+                        asesor_consultado = st.selectbox("👤 Seleccionar Asesor a Consultar:", lista_asesores, index=idx_default_u, key="cal_admin_asesor_sel")
+                else:
+                    col_cal, col_sem = st.columns([1, 1.5])
+                    with col_cal:
+                        fecha_busqueda = st.date_input("Seleccionar Fecha de Consulta:", value=obtener_hora_peru().date(), key="cal_asesor_view")
+                    asesor_consultado = st.session_state.usuario_actual
+                    pestana_busq = MESES_ESPANOL[fecha_busqueda.month]
+                    df_historial = cargar_datos_pestana(pestana_busq)
 
-                # Semanas laborales de Lunes a Sábado del mes seleccionado
+                fila_user_hist = df_historial[df_historial["Usuario"] == asesor_consultado] if not df_historial.empty and "Usuario" in df_historial.columns else pd.DataFrame()
+
+                # Semanas laborales de Lunes a Domingo del mes seleccionado
                 dict_semanas = obtener_semanas_laborales(fecha_busqueda.year, fecha_busqueda.month)
                 sem_sugerida_idx = obtener_num_semana_para_fecha(fecha_busqueda, dict_semanas)
                 opciones_sem_labels = [dict_semanas[k]["label"] for k in sorted(dict_semanas.keys())]
@@ -1588,20 +1609,24 @@ try:
                     if info_semana_act["meta_horas"] > 0:
                         h_trabajadas = info_semana_act["minutos"] / 60.0
                         pct_s = info_semana_act["pct"]
-                        st.markdown(f"**Meta de la Semana:** {h_trabajadas:.1f} h / {info_semana_act['meta_horas']:.0f} h (**{pct_s*100:.1f}%**)")
+                        meta_label_txt = f"Meta de la Semana ({asesor_consultado}):" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "Meta de la Semana:"
+                        st.markdown(f"**{meta_label_txt}** {h_trabajadas:.1f} h / {info_semana_act['meta_horas']:.0f} h (**{pct_s*100:.1f}%**)")
                         st.progress(pct_s)
                         min_faltan_s = int((info_semana_act["meta_horas"] * 60) - info_semana_act["minutos"])
                         if min_faltan_s > 0:
-                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltan_s)}** para alcanzar tu meta de esta semana.")
+                            pron_meta = "la meta" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "tu meta"
+                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltan_s)}** para alcanzar {pron_meta} de esta semana.")
                         else:
-                            st.success("🎉 ¡Felicidades! Has completado tu meta de esta semana.")
+                            msg_felic = "🎉 ¡Meta de esta semana completada!" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "🎉 ¡Felicidades! Has completado tu meta de esta semana."
+                            st.success(msg_felic)
                             if info_semana_act.get("minutos_exceso", 0) > 0:
                                 st.caption(f"ℹ️ Exceso: **+{info_semana_act['horas_exceso_str']}** (a partir de la Semana 2, las horas excedentes al cierre no se acumulan a otras semanas).")
                     else:
                         st.caption("ℹ️ Sin meta asignada para esta semana.")
 
-                # 2. Desglose detallado de asistencias de esa semana (Lunes a Sábado)
-                st.markdown(f"###### 📋 Registro de Asistencias — {info_semana_act['label']}")
+                # 2. Desglose detallado de asistencias de esa semana (Lunes a Domingo)
+                tit_tabla = f"📋 Registro de Asistencias — {asesor_consultado} ({info_semana_act['label']})" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else f"📋 Registro de Asistencias — {info_semana_act['label']}"
+                st.markdown(f"###### {tit_tabla}")
                 filas_dias_sem = []
                 for dia_int in info_semana_act["dias"]:
                     d_dt = datetime(fecha_busqueda.year, fecha_busqueda.month, dia_int).date()
@@ -1638,18 +1663,22 @@ try:
                 st.markdown("---")
                 col_m1, col_m2 = st.columns([1, 1.5])
                 with col_m1:
-                    st.metric(f"Total Acumulado en {pestana_busq.capitalize()}", formatear_minutos_a_string(total_minutos_mes))
+                    tit_acum_m = f"Total Acumulado ({asesor_consultado.split()[0]}) en {pestana_busq.capitalize()}" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else f"Total Acumulado en {pestana_busq.capitalize()}"
+                    st.metric(tit_acum_m, formatear_minutos_a_string(total_minutos_mes))
                 with col_m2:
                     if meta_mes_total > 0:
                         total_horas = total_minutos_mes / 60.0
                         pct = min(1.0, total_horas / meta_mes_total)
-                        st.markdown(f"**Meta Mensual Total:** {total_horas:.1f} h / {meta_mes_total:.0f} h (**{pct*100:.1f}%**)")
+                        meta_mes_lbl = f"Meta Mensual Total ({asesor_consultado}):" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "Meta Mensual Total:"
+                        st.markdown(f"**{meta_mes_lbl}** {total_horas:.1f} h / {meta_mes_total:.0f} h (**{pct*100:.1f}%**)")
                         st.progress(pct)
                         min_faltantes = int((meta_mes_total * 60) - total_minutos_mes)
                         if min_faltantes > 0:
-                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltantes)}** para completar la meta global del mes.")
+                            pron_m_f = "la meta" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "tu meta"
+                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_faltantes)}** para completar {pron_m_f} global del mes.")
                         else:
-                            st.success("🎉 ¡Felicidades! Has completado tu meta del mes.")
+                            msg_m_ok = "🎉 ¡Meta del mes completada!" if (es_admin and asesor_consultado != st.session_state.usuario_actual) else "🎉 ¡Felicidades! Has completado tu meta del mes."
+                            st.success(msg_m_ok)
                     else:
                         st.caption("ℹ️ Sin meta mensual asignada.")
 
@@ -2013,6 +2042,70 @@ try:
                             
                         st.markdown(f"###### Resumen del Equipo — {info_s_adm['label']}")
                         st.dataframe(pd.DataFrame(filas_semana_admin), use_container_width=True, hide_index=True)
+
+                        # Detalle individual por asesor para la semana evaluada
+                        with st.expander("🔍 Ver Detalle Diario y Registro por Asesor en esta Semana", expanded=False):
+                            lista_asesores_adm = [u for u in df_admin["Usuario"].dropna().unique().tolist() if str(u).strip() not in ["", "nan", "None"]]
+                            if lista_asesores_adm:
+                                asesor_sel_det = st.selectbox("Seleccionar Asesor a Consultar:", lista_asesores_adm, key="adm_sub_sem_asesor_sel")
+                                fila_asesor_det = df_admin[df_admin["Usuario"] == asesor_sel_det]
+                                res_sem_det, min_mes_det, meta_mes_det = calcular_resumen_semanal_asesor(
+                                    fila_asesor_det, df_admin, fecha_admin.year, fecha_admin.month, dict_semanas_adm
+                                )
+                                info_sem_det = res_sem_det[sem_num_adm]
+                                
+                                col_d1, col_d2 = st.columns([1, 1.5])
+                                with col_d1:
+                                    st.metric(
+                                        f"Horas {info_sem_det['label'].split(' ')[0]} {info_sem_det['label'].split(' ')[1]}",
+                                        info_sem_det["horas_str"],
+                                        f"{info_sem_det['dias_asistidos']} días asistidos"
+                                    )
+                                with col_d2:
+                                    if info_sem_det["meta_horas"] > 0:
+                                        h_trab_det = info_sem_det["minutos"] / 60.0
+                                        pct_s_det = info_sem_det["pct"]
+                                        st.markdown(f"**Meta de la Semana ({asesor_sel_det}):** {h_trab_det:.1f} h / {info_sem_det['meta_horas']:.0f} h (**{pct_s_det*100:.1f}%**)")
+                                        st.progress(pct_s_det)
+                                        min_falt_det = int((info_sem_det["meta_horas"] * 60) - info_sem_det["minutos"])
+                                        if min_falt_det > 0:
+                                            st.caption(f"🎯 Faltan **{formatear_minutos_a_string(min_falt_det)}** para alcanzar la meta de esta semana.")
+                                        else:
+                                            st.success("🎉 ¡Meta semanal alcanzada!")
+                                            if info_sem_det.get("minutos_exceso", 0) > 0:
+                                                st.caption(f"ℹ️ Exceso: **+{info_sem_det['horas_exceso_str']}** (las horas excedentes no se acumulan tras el cierre).")
+                                    else:
+                                        st.caption("ℹ️ Sin meta semanal asignada.")
+                                        
+                                # Tabla diaria de esa semana
+                                filas_diarias_det = []
+                                for dia_int in info_sem_det["dias"]:
+                                    d_dt = datetime(fecha_admin.year, fecha_admin.month, dia_int).date()
+                                    f_d_str = f"{dia_int:02d}/{fecha_admin.month:02d}/{fecha_admin.year}"
+                                    nom_dia = DIAS_SEMANA_ESPANOL.get(d_dt.weekday(), "")
+                                    ce = f"{f_d_str} (Entrada)"
+                                    crs = f"{f_d_str} (Inicio Ref)"
+                                    crr = f"{f_d_str} (Fin Ref)"
+                                    cs = f"{f_d_str} (Salida)"
+                                    if not fila_asesor_det.empty and ce in df_admin.columns and cs in df_admin.columns:
+                                        ve = str(fila_asesor_det.iloc[0][ce]).strip()
+                                        vrs = str(fila_asesor_det.iloc[0][crs]).strip() if crs in df_admin.columns else "-"
+                                        vrr = str(fila_asesor_det.iloc[0][crr]).strip() if crr in df_admin.columns else "-"
+                                        vs = str(fila_asesor_det.iloc[0][cs]).strip()
+                                        m_d = calcular_minutos_netos_raw(ve, vrs, vrr, vs)
+                                        tot_dia_str = formatear_minutos_a_string(m_d) if (ve not in ["", "Falta", "-", "nan", "None"] or vs not in ["", "Falta", "-", "nan", "None"]) else "-"
+                                    else:
+                                        ve, vrs, vrr, vs, tot_dia_str = "-", "-", "-", "-", "-"
+                                    filas_diarias_det.append({
+                                        "Fecha": f_d_str,
+                                        "Día": nom_dia,
+                                        "Entrada": ve if ve not in ["nan", "None"] else "-",
+                                        "Inicio Ref": vrs if vrs not in ["nan", "None"] else "-",
+                                        "Fin Ref": vrr if vrr not in ["nan", "None"] else "-",
+                                        "Salida": vs if vs not in ["nan", "None"] else "-",
+                                        "Total Neto": tot_dia_str
+                                    })
+                                st.dataframe(pd.DataFrame(filas_diarias_det), use_container_width=True, hide_index=True)
 
                     with sub_mes:
                         st.markdown(f"###### Resumen Consolidado - Mes de {pestana_admin}")

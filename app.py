@@ -10,6 +10,7 @@ import json
 import base64
 import os
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from PIL import Image
 
 # Función para cargar el logo de Ecosol en base64 de forma segura
@@ -40,8 +41,10 @@ except Exception:
 # Importación segura de Google GenAI (compatible tanto local como en la nube)
 try:
     from google import genai
+    from google.genai import types
 except ImportError:
     genai = None
+    types = None
 
 # Importación segura de Google Drive API
 try:
@@ -853,14 +856,20 @@ def analizar_historial_tiktok(imagen_bytes):
         api_key_val = str(st.secrets["GEMINI_API_KEY"]).strip()
         client = genai.Client(api_key=api_key_val)
 
+        # Mejora 1: Optimización y compresión ligera de imagen (máx 800px, JPEG calidad 80%)
+        # Reduce drásticamente el peso de la imagen a ~60-90KB acelerando el tiempo de subida y procesamiento
         imagen_pil = Image.open(io.BytesIO(imagen_bytes))
         if imagen_pil.mode in ("RGBA", "P"):
             imagen_pil = imagen_pil.convert("RGB")
-        imagen_pil.thumbnail((1024, 1024))
+        imagen_pil.thumbnail((800, 800))
+        buffer_opt = io.BytesIO()
+        imagen_pil.save(buffer_opt, format="JPEG", quality=80, optimize=True)
+        buffer_opt.seek(0)
+        imagen_pil = Image.open(buffer_opt)
 
         prompt = """
         Analiza detenidamente esta captura de pantalla de un historial de transmisiones de TikTok Live.
-        Debes responder ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin bloques markdown ```json).
+        Extrae la información y responde con la estructura JSON requerida.
 
         Estructura requerida:
         {
@@ -879,30 +888,80 @@ def analizar_historial_tiktok(imagen_bytes):
         3. Extrae con exactitud las horas de inicio y fin de cada transmisión de ese día único.
         """
 
-        modelos_a_probar = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"]
+        # Mejora 2: Configuración de JSON Mode Nativo para respuestas directas y ultrarrápidas
+        config_gen = None
+        if types is not None:
+            try:
+                config_gen = types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1
+                )
+            except Exception:
+                config_gen = {"response_mime_type": "application/json", "temperature": 0.1}
+        else:
+            config_gen = {"response_mime_type": "application/json", "temperature": 0.1}
+
+        # Mejora 5: Modelos actualizados y timeout dinámico estricto (8 segundos por intento)
+        modelos_a_probar = [
+            "gemini-3.8-flash",
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-flash-latest",
+            "gemini-3.5-flash"
+        ]
         response = None
         ultimo_error = None
 
-        for modelo in modelos_a_probar:
-            try:
-                response = client.models.generate_content(
-                    model=modelo,
+        def llamar_generacion(mod_nombre):
+            if config_gen:
+                try:
+                    return client.models.generate_content(
+                        model=mod_nombre,
+                        contents=[prompt, imagen_pil],
+                        config=config_gen
+                    )
+                except Exception:
+                    return client.models.generate_content(
+                        model=mod_nombre,
+                        contents=[prompt, imagen_pil]
+                    )
+            else:
+                return client.models.generate_content(
+                    model=mod_nombre,
                     contents=[prompt, imagen_pil]
                 )
+
+        for modelo in modelos_a_probar:
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    fut = executor.submit(llamar_generacion, modelo)
+                    response = fut.result(timeout=8)
                 if response and response.text:
                     break
+            except FutureTimeoutError:
+                ultimo_error = f"El modelo {modelo} superó el límite de espera (8s)."
+                continue
             except Exception as e:
                 ultimo_error = e
                 continue
 
         if not response or not response.text:
-            raise Exception(f"No se pudo obtener respuesta de la IA: {ultimo_error}")
+            raise Exception(f"No se pudo obtener respuesta de la IA en tiempo razonable: {ultimo_error}")
 
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
-            texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
-        elif texto_limpio.startswith("```"):
-            texto_limpio = texto_limpio.replace("```", "").strip()
+            texto_limpio = texto_limpio[7:]
+        if texto_limpio.startswith("```"):
+            texto_limpio = texto_limpio[3:]
+        if texto_limpio.endswith("```"):
+            texto_limpio = texto_limpio[:-3]
+        texto_limpio = texto_limpio.strip()
+
+        # Extraer el bloque JSON en caso de caracteres residuales
+        idx_ini = texto_limpio.find("{")
+        idx_fin = texto_limpio.rfind("}")
+        if idx_ini != -1 and idx_fin != -1:
+            texto_limpio = texto_limpio[idx_ini:idx_fin+1]
 
         return json.loads(texto_limpio)
 

@@ -901,35 +901,70 @@ def analizar_historial_tiktok(imagen_bytes):
         else:
             config_gen = {"response_mime_type": "application/json", "temperature": 0.1}
 
-        # Mejora 5: Modelos actualizados y timeout dinámico estricto (8 segundos por intento)
+        # Prioridad a modelos estables, ultrarrápidos y libres de saturación 503
         modelos_a_probar = [
+            "gemini-3.5-flash-lite",
+            "gemini-3-flash-preview",
             "gemini-3.8-flash",
             "gemini-3.7-flash",
             "gemini-3.6-flash",
-            "gemini-flash-latest",
-            "gemini-3.5-flash"
+            "gemini-flash-latest"
         ]
         response = None
         ultimo_error = None
 
         def llamar_generacion(mod_nombre):
-            if config_gen:
-                try:
-                    return client.models.generate_content(
-                        model=mod_nombre,
-                        contents=[prompt, imagen_pil],
-                        config=config_gen
-                    )
-                except Exception:
-                    return client.models.generate_content(
-                        model=mod_nombre,
-                        contents=[prompt, imagen_pil]
-                    )
-            else:
-                return client.models.generate_content(
-                    model=mod_nombre,
-                    contents=[prompt, imagen_pil]
-                )
+            # 1. Intentar con cliente oficial de Google GenAI
+            try:
+                if client is not None:
+                    if config_gen:
+                        try:
+                            return client.models.generate_content(
+                                model=mod_nombre,
+                                contents=[prompt, imagen_pil],
+                                config=config_gen
+                            )
+                        except Exception:
+                            return client.models.generate_content(
+                                model=mod_nombre,
+                                contents=[prompt, imagen_pil]
+                            )
+                    else:
+                        return client.models.generate_content(
+                            model=mod_nombre,
+                            contents=[prompt, imagen_pil]
+                        )
+            except Exception:
+                pass
+
+            # 2. Respaldo HTTP REST directo en caso de saturación o incompatibilidad del SDK
+            buffer_bytes = io.BytesIO()
+            imagen_pil.save(buffer_bytes, format="JPEG")
+            img_b64 = base64.b64encode(buffer_bytes.getvalue()).decode("utf-8")
+            url_api = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_nombre}:generateContent?key={api_key_val}"
+            payload_rest = {
+                "contents": [{
+                    "parts": [
+                        {"text": prompt},
+                        {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                    ]
+                }],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.1
+                }
+            }
+            req_rest = urllib.request.Request(
+                url_api,
+                data=json.dumps(payload_rest).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req_rest, timeout=8) as r_http:
+                res_json = json.loads(r_http.read().decode("utf-8"))
+                cand_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                class DirectResponse:
+                    text = cand_text
+                return DirectResponse()
 
         for modelo in modelos_a_probar:
             try:
@@ -946,6 +981,9 @@ def analizar_historial_tiktok(imagen_bytes):
                 continue
 
         if not response or not response.text:
+            err_str = str(ultimo_error)
+            if "503" in err_str or "UNAVAILABLE" in err_str:
+                raise Exception("Los servidores de IA de Google están experimentando alta demanda momentánea (Error 503). Por favor, presiona 'Reintentar Detección'.")
             raise Exception(f"No se pudo obtener respuesta de la IA en tiempo razonable: {ultimo_error}")
 
         texto_limpio = response.text.strip()
@@ -1777,11 +1815,18 @@ try:
 
                     if not data_ia.get("valido", False):
                         st.error(f"❌ **Reporte Rechazado:** {data_ia.get('motivo_error', 'Ocurrió un error al procesar la imagen.')}")
-                        if st.button("🔄 Probar con otra imagen", use_container_width=True):
-                            st.session_state.pop("res_tiktok_data", None)
-                            st.session_state.pop("id_archivo_tt_actual", None)
-                            st.session_state.uploader_key += 1
-                            st.rerun()
+                        col_btn_reint, col_btn_otro = st.columns(2)
+                        with col_btn_reint:
+                            if st.button("🔄 Reintentar Detección", use_container_width=True, type="primary"):
+                                st.session_state.pop("res_tiktok_data", None)
+                                st.session_state.pop("id_archivo_tt_actual", None)
+                                st.rerun()
+                        with col_btn_otro:
+                            if st.button("📁 Probar con otra imagen", use_container_width=True):
+                                st.session_state.pop("res_tiktok_data", None)
+                                st.session_state.pop("id_archivo_tt_actual", None)
+                                st.session_state.uploader_key += 1
+                                st.rerun()
                     else:
                         dia_detectado = str(data_ia.get("dia", "")).strip()
                         mes_raw = str(data_ia.get("mes", "")).lower().strip()

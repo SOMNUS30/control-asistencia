@@ -42,7 +42,7 @@ except Exception:
 try:
     from google import genai
     from google.genai import types
-except ImportError:
+except Exception:
     genai = None
     types = None
 
@@ -911,32 +911,14 @@ def analizar_historial_tiktok(imagen_bytes):
             "gemini-3.6-flash",
             "gemini-flash-latest",
             "gemini-3.5-flash"
-            "gemini-flash-latest"
         ]
         response = None
         ultimo_error = None
 
         def llamar_generacion(mod_nombre):
-            if config_gen:
-                try:
-                    return client.models.generate_content(
-                        model=mod_nombre,
-                        contents=[prompt, imagen_pil],
-                        config=config_gen
-                    )
-                except Exception:
-                    return client.models.generate_content(
-                        model=mod_nombre,
-                        contents=[prompt, imagen_pil]
-                    )
-            else:
-                return client.models.generate_content(
-                    model=mod_nombre,
-                    contents=[prompt, imagen_pil]
-                )
             # 1. Intentar con cliente oficial de Google GenAI
-            try:
-                if client is not None:
+            if client is not None:
+                try:
                     if config_gen:
                         try:
                             return client.models.generate_content(
@@ -954,8 +936,8 @@ def analizar_historial_tiktok(imagen_bytes):
                             model=mod_nombre,
                             contents=[prompt, imagen_pil]
                         )
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
             # 2. Respaldo HTTP REST directo en caso de saturación o incompatibilidad del SDK
             buffer_bytes = io.BytesIO()
@@ -1835,11 +1817,6 @@ try:
 
                     if not data_ia.get("valido", False):
                         st.error(f"❌ **Reporte Rechazado:** {data_ia.get('motivo_error', 'Ocurrió un error al procesar la imagen.')}")
-                        if st.button("🔄 Probar con otra imagen", use_container_width=True):
-                            st.session_state.pop("res_tiktok_data", None)
-                            st.session_state.pop("id_archivo_tt_actual", None)
-                            st.session_state.uploader_key += 1
-                            st.rerun()
                         col_btn_reint, col_btn_otro = st.columns(2)
                         with col_btn_reint:
                             if st.button("🔄 Reintentar Detección", use_container_width=True, type="primary"):

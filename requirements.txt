@@ -1,4 +1,4 @@
-streamlit
+ streamlit
 starlette<0.38.0
 gspread
 gspread-dataframe

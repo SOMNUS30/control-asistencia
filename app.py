@@ -901,6 +901,7 @@ def analizar_historial_tiktok(imagen_bytes):
         else:
             config_gen = {"response_mime_type": "application/json", "temperature": 0.1}
 
+        # Mejora 5: Modelos actualizados y timeout dinámico estricto (8 segundos por intento)
         # Prioridad a modelos estables, ultrarrápidos y libres de saturación 503
         modelos_a_probar = [
             "gemini-3.5-flash-lite",
@@ -908,12 +909,31 @@ def analizar_historial_tiktok(imagen_bytes):
             "gemini-3.8-flash",
             "gemini-3.7-flash",
             "gemini-3.6-flash",
+            "gemini-flash-latest",
+            "gemini-3.5-flash"
             "gemini-flash-latest"
         ]
         response = None
         ultimo_error = None
 
         def llamar_generacion(mod_nombre):
+            if config_gen:
+                try:
+                    return client.models.generate_content(
+                        model=mod_nombre,
+                        contents=[prompt, imagen_pil],
+                        config=config_gen
+                    )
+                except Exception:
+                    return client.models.generate_content(
+                        model=mod_nombre,
+                        contents=[prompt, imagen_pil]
+                    )
+            else:
+                return client.models.generate_content(
+                    model=mod_nombre,
+                    contents=[prompt, imagen_pil]
+                )
             # 1. Intentar con cliente oficial de Google GenAI
             try:
                 if client is not None:
@@ -1815,6 +1835,11 @@ try:
 
                     if not data_ia.get("valido", False):
                         st.error(f"❌ **Reporte Rechazado:** {data_ia.get('motivo_error', 'Ocurrió un error al procesar la imagen.')}")
+                        if st.button("🔄 Probar con otra imagen", use_container_width=True):
+                            st.session_state.pop("res_tiktok_data", None)
+                            st.session_state.pop("id_archivo_tt_actual", None)
+                            st.session_state.uploader_key += 1
+                            st.rerun()
                         col_btn_reint, col_btn_otro = st.columns(2)
                         with col_btn_reint:
                             if st.button("🔄 Reintentar Detección", use_container_width=True, type="primary"):
